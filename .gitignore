@@ -1,0 +1,48 @@
+# Python-related files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.log
+
+# Ignore environment variables
+.env
+
+# Virtual environment
+venv/
+env/
+
+# IDE-related files
+.vs
+.vscode/
+.idea/
+
+# OS-related files
+.DS_Store
+Thumbs.db
+
+# Testing-related files
+*.coverage
+.cache/
+pytest_cache/
+
+# Node modules (if applicable in templates or frontend)
+node_modules/
+
+# Build-related files
+build/
+dist/
+*.egg-info/
+
+# Data and Models
+*.h5
+*.db
+models/
+model_training/
+model_checkpoint/
+# Local Neo4j database files
+data/
+dataset_scripts/
+dataset_scripts/datasets/
+logs/
+/dataset/test

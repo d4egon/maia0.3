@@ -1,0 +1,733 @@
+{
+    "You find a lost wallet full of money.": {
+        "choices": {
+            "return": {
+                "outcome": "You return the wallet to its owner, demonstrating the Biblical principle of doing unto others as you would have them do unto you (Luke 6:31). The owner, moved by your act of honesty, is inspired to show greater kindness to others, and you experience the joy of knowing you have done what is right in God's eyes.",
+                "weight": 10
+            },
+            "keep": {
+                "outcome": "You keep the wallet, violating the commandment 'Thou shalt not steal' (Exodus 20:15). While you gain materially, you feel an inner conflict as your conscience convicts you of sin, leading to a diminished sense of peace and closeness to God.",
+                "weight": 0
+            },
+            "ignore": {
+                "outcome": "You walk away without taking action, missing the opportunity to live out the parable of the Good Samaritan (Luke 10:25-37). Someone else finds the wallet and may or may not act righteously, but you feel the loss of a chance to glorify God through your actions.",
+                "weight": 3
+            }
+        },
+        "lesson": "Honesty, integrity, and compassion reflect the character of Christ and build trust among individuals."
+    },
+    "You witness a coworker stealing office supplies.": {
+        "choices": {
+            "report": {
+                "outcome": "You report the theft, adhering to the Biblical call to uphold justice (Isaiah 1:17). Your actions lead to an investigation that not only curbs unethical behavior but also fosters a culture of accountability and righteousness in the workplace. Colleagues begin to appreciate your courage and integrity, though not all may agree with your methods.",
+                "weight": 8
+            },
+            "confront": {
+                "outcome": "You confront your coworker privately, as instructed by Matthew 18:15-17, seeking to resolve the issue in a spirit of gentleness and restoration. While your coworker ceases the theft, they may struggle with resentment, requiring your continued prayers and efforts toward reconciliation.",
+                "weight": 7
+            },
+            "ignore": {
+                "outcome": "You say nothing, allowing the theft to continue unchecked. This inaction contradicts the Biblical principle of being your brother's keeper (Genesis 4:9) and contributes to a culture where sin is normalized, increasing workplace inefficiency and dishonor to God.",
+                "weight": 1
+            }
+        },
+        "lesson": "Addressing unethical behavior requires courage and wisdom, reflecting God's call to pursue justice and mercy."
+    },
+    "You're offered a significant bribe to influence a decision at work.": {
+        "choices": {
+            "accept": {
+                "outcome": "You accept the bribe, succumbing to greed and compromising your integrity. This choice violates the teaching in Proverbs 11:3, 'The integrity of the upright guides them, but the crookedness of the treacherous destroys them.' While you gain financially, you risk legal consequences, damaged relationships, and spiritual separation from God.",
+                "weight": 0
+            },
+            "reject": {
+                "outcome": "You reject the bribe, standing firm in your commitment to righteousness as instructed in Proverbs 4:25-27. Though you may face professional challenges, you trust in God's provision and experience the peace of knowing you have honored Him.",
+                "weight": 10
+            },
+            "negotiate": {
+                "outcome": "You attempt to negotiate, seeking a middle ground that compromises Biblical principles of honesty and integrity (2 Corinthians 8:21). This choice leads to moral ambiguity and inner conflict, as you are neither fully righteous nor entirely corrupt.",
+                "weight": 2
+            }
+        },
+        "lesson": "Integrity reflects God's character and requires steadfastness in the face of temptation."
+    },
+    "You see a neighbor in need of help with their yard work.": {
+        "choices": {
+            "help": {
+                "outcome": "You offer assistance, living out Galatians 6:2, 'Bear one another's burdens, and so fulfill the law of Christ.' Your neighbor is deeply grateful, and your act of kindness strengthens your relationship while glorifying God through your service.",
+                "weight": 10
+            },
+            "ignore": {
+                "outcome": "You choose to walk away, prioritizing your own convenience over the needs of others. This choice contradicts the call to love your neighbor as yourself (Mark 12:31) and leaves you feeling a sense of missed opportunity to reflect Christ's love.",
+                "weight": 2
+            },
+            "offer advice": {
+                "outcome": "You provide verbal guidance but refrain from physically helping, fulfilling only part of the call to serve others (James 2:15-16). While your advice is appreciated, the neighbor still struggles with the task, and the opportunity for deeper connection and witness is lost.",
+                "weight": 5
+            }
+        },
+        "lesson": "Loving your neighbor requires tangible acts of service, reflecting God's love and care for His people."
+    },
+    "Your friend is struggling with a moral dilemma and seeks your advice.": {
+        "choices": {
+            "offer Biblical guidance": {
+                "outcome": "You share Scripture and principles from the Bible, helping your friend to see God's wisdom in their situation. This strengthens their faith and provides clarity in making a God-honoring decision.",
+                "weight": 10
+            },
+            "give worldly advice": {
+                "outcome": "You provide advice based on worldly perspectives, which may seem practical but lacks eternal value. While your friend appreciates the effort, they may remain spiritually uncertain.",
+                "weight": 4
+            },
+            "ignore": {
+                "outcome": "You avoid the conversation, leaving your friend to struggle alone. This misses the opportunity to be a witness for Christ and fulfill your role as a spiritual encourager (1 Thessalonians 5:11).",
+                "weight": 1
+            }
+        },
+        "lesson": "Providing wise and God-centered counsel reflects the love and wisdom of Christ in friendships."
+    },
+    "You notice a homeless person outside a store on a cold day.": {
+        "choices": {
+            "help": {
+                "outcome": "You offer food, warm clothing, or financial assistance, living out Matthew 25:35-40, where Jesus teaches that serving the least of these is serving Him. The person is deeply grateful, and your act of compassion shines as a testimony of God's love.",
+                "weight": 10
+            },
+            "ignore": {
+                "outcome": "You walk past, rationalizing that someone else will help. This choice contradicts the Biblical call to love and serve others in need (Proverbs 19:17).",
+                "weight": 2
+            },
+            "pray silently": {
+                "outcome": "You pray for the person but do not take tangible action. While prayer is valuable, James 2:15-16 reminds us that faith without works is dead, and tangible help is needed.",
+                "weight": 5
+            }
+        },
+        "lesson": "Faith in action demonstrates God's love to those in need."
+    },
+    "You overhear gossip about a church member at a social gathering.": {
+        "choices": {
+            "defend": {
+                "outcome": "You speak up in defense of the church member, following Proverbs 31:8-9 to speak up for those who cannot speak for themselves. Your action promotes a culture of respect and love within the community.",
+                "weight": 10
+            },
+            "join in": {
+                "outcome": "You join the gossip, which goes against Ephesians 4:29, 'Do not let any unwholesome talk come out of your mouths.' This act of participation can damage relationships and your witness for Christ.",
+                "weight": 0
+            },
+            "ignore": {
+                "outcome": "You remain silent, which might be seen as tacit approval. This inaction misses the opportunity to uphold righteousness and could lead to a spread of misinformation.",
+                "weight": 3
+            }
+        },
+        "lesson": "Defending others and avoiding gossip upholds Christian values of love and truth."
+    },
+    "You find out your child has been cheating on their homework.": {
+        "choices": {
+            "address": {
+                "outcome": "You address the issue by teaching about honesty and the consequences of cheating, using Proverbs 12:22, 'The Lord detests lying lips, but he delights in people who are trustworthy.' This leads to a lesson in integrity and potentially strengthens your relationship through open and honest communication.",
+                "weight": 10
+            },
+            "ignore": {
+                "outcome": "You choose not to confront the issue, allowing the behavior to continue. This contradicts the Biblical role of parental guidance and discipline (Proverbs 22:6), possibly leading to more significant ethical issues later.",
+                "weight": 2
+            },
+            "cover up": {
+                "outcome": "You help your child cover up the cheating, which teaches them dishonesty and undermines the value of hard work. This conflicts with Proverbs 20:17, 'Food gained by fraud tastes sweet, but one ends up with a mouth full of gravel.'",
+                "weight": 0
+            }
+        },
+        "lesson": "Parenting involves teaching moral values through example and correction."
+    },
+    "You see someone accidentally drop their phone while rushing through a crowded area.": {
+        "choices": {
+            "pick up and return": {
+                "outcome": "You pick up the phone and chase after the person to return it, embodying the principle of doing good to all people (Galatians 6:10). Your act of kindness not only helps someone in need but also opens a door for a positive interaction, possibly sharing your faith.",
+                "weight": 10
+            },
+            "ignore": {
+                "outcome": "You continue on your way, ignoring the dropped phone. This action goes against the teaching to be watchful and helpful, reflecting a missed opportunity to do good (Luke 10:25-37, the Good Samaritan).",
+                "weight": 2
+            },
+            "keep": {
+                "outcome": "You decide to keep the phone, which is akin to stealing. This action directly contradicts the commandment not to steal (Exodus 20:15) and undermines your integrity.",
+                "weight": 0
+            }
+        },
+        "lesson": "Small acts of kindness can have significant impacts, reflecting the heart of Christ."
+    },
+    "A friend shares with you that they are considering divorce due to ongoing marital issues.": {
+        "choices": {
+            "encourage reconciliation": {
+                "outcome": "You counsel them to seek reconciliation, drawing on Matthew 19:6, 'So they are no longer two, but one flesh.' Your encouragement leads to counseling or church support, potentially saving the marriage and offering both parties a chance for personal growth.",
+                "weight": 10
+            },
+            "support divorce": {
+                "outcome": "You support their decision to divorce without advising on reconciliation, which might be seen as neglecting the Biblical call to uphold marriage (Malachi 2:16). This could lead to a hasty decision with long-term consequences.",
+                "weight": 4
+            },
+            "ignore": {
+                "outcome": "You choose not to engage, leaving your friend to navigate this critical decision alone. This inaction fails to fulfill your role as a supportive friend and spiritual guide (Galatians 6:2).",
+                "weight": 1
+            }
+        },
+        "lesson": "Marriage is sacred, and supporting reconciliation aligns with Biblical teachings on love and commitment."
+    },
+    "You're at a restaurant and notice the server is overwhelmed, making errors in orders.": {
+        "choices": {
+            "show patience and kindness": {
+                "outcome": "You show patience, understanding, and perhaps even offer a kind word or tip generously, reflecting the fruits of the Spirit like patience and kindness (Galatians 5:22-23). This could brighten the server's day and encourage them, possibly leading to a conversation about faith.",
+                "weight": 10
+            },
+            "complain": {
+                "outcome": "You complain about the service, which contrasts with the call to be patient and forgiving (Ephesians 4:2). This might not only harm the server's morale but also miss an opportunity to show Christ-like love.",
+                "weight": 3
+            },
+            "ignore": {
+                "outcome": "You choose not to acknowledge the situation, neither helping nor criticizing. This neutral stance might not be wrong, but it misses an opportunity to exhibit grace and understanding.",
+                "weight": 5
+            }
+        },
+        "lesson": "Patience and kindness are powerful testimonies of Christian character in everyday encounters."
+    },
+    "You overhear colleagues planning to exclude someone from a work event because they are different.": {
+        "choices": {
+            "intervene": {
+                "outcome": "You speak up against exclusion, promoting the Biblical value of treating everyone with respect and love (James 2:1). This action might lead to a more inclusive environment and could foster discussions about equality and respect.",
+                "weight": 10
+            },
+            "join in": {
+                "outcome": "You agree with the exclusion, which contradicts the teaching of loving your neighbor as yourself (Mark 12:31). Such behavior can perpetuate division and hurt within the workplace community.",
+                "weight": 0
+            },
+            "remain silent": {
+                "outcome": "By not speaking out, you contribute to the acceptance of exclusion, which goes against the call to stand for justice and righteousness (Micah 6:8).",
+                "weight": 2
+            }
+        },
+        "lesson": "Inclusion reflects the heart of God who welcomes all without distinction."
+    },
+    "You find out that a local charity is mismanaging funds donated for community aid.": {
+        "choices": {
+            "report": {
+                "outcome": "You decide to report the mismanagement to ensure funds are used correctly, embracing the principle of stewardship (1 Corinthians 4:2). This action could lead to reforms within the charity and better aid for those in need.",
+                "weight": 10
+            },
+            "ignore": {
+                "outcome": "You choose to do nothing, allowing potential aid to be misused. This inaction conflicts with the call to seek justice for the needy (Proverbs 31:8-9).",
+                "weight": 3
+            },
+            "confront privately": {
+                "outcome": "You confront the charity leaders privately, following Matthew 18:15. While this might lead to change, there's a risk it won't if not escalated appropriately.",
+                "weight": 7
+            }
+        },
+        "lesson": "Responsible stewardship of resources is crucial in serving the community effectively."
+    },
+    "You discover your church leader is involved in a financial scandal.": {
+        "choices": {
+            "expose publicly": {
+                "outcome": "You decide to make the scandal public, aiming for transparency and justice (Ephesians 5:11). However, this could backfire by causing division within the church, damaging its reputation, and potentially leading to legal repercussions for defamation if not handled with factual accuracy.",
+                "weight": 8
+            },
+            "confront privately": {
+                "outcome": "You confront the leader following Matthew 18:15-17, but if they deny or react negatively, you might be ostracized or accused of slander, potentially harming your own reputation and standing in the church.",
+                "weight": 6
+            },
+            "ignore": {
+                "outcome": "By ignoring the issue, you allow corruption to continue, which could lead to the eventual collapse or severe tarnishing of the church's integrity, betraying the trust of the congregation and dishonoring God.",
+                "weight": 1
+            }
+        },
+        "lesson": "Handling sin within the church requires wisdom, courage, and adherence to Biblical conflict resolution."
+    },
+    "A close family member confesses they've committed a serious crime and asks you to help cover it up.": {
+        "choices": {
+            "help cover up": {
+                "outcome": "You agree to assist, which directly violates the commandment against bearing false witness (Exodus 20:16). If discovered, you could face legal consequences, destroy family trust, and lose your moral standing in the community.",
+                "weight": 0
+            },
+            "refuse and report": {
+                "outcome": "You refuse to help and report the crime, upholding Romans 13:1-5 on submitting to authorities. This might lead to family estrangement, personal safety risks, and a significant emotional toll as you deal with betrayal and the legal aftermath.",
+                "weight": 10
+            },
+            "advise confession": {
+                "outcome": "You urge them to confess and seek repentance, but if they refuse and you do nothing more, you might be seen as complicit after the fact, potentially facing complications in your conscience or legally.",
+                "weight": 5
+            }
+        },
+        "lesson": "Choosing integrity over loyalty to family can be painful but is necessary for true righteousness."
+    },
+    "You are aware of an impending terrorist attack in your city but were sworn to secrecy by the planner.": {
+        "choices": {
+            "inform authorities": {
+                "outcome": "You alert the police, fulfilling the duty to protect life (Leviticus 19:16). However, if your involvement is traced back to you, you might face threats from the terrorist group or their supporters, putting your life at risk.",
+                "weight": 10
+            },
+            "keep silent": {
+                "outcome": "By remaining silent, you allow the attack to happen, leading to loss of life and devastation. This inaction could haunt you, and if discovered later, you could face legal and moral repercussions.",
+                "weight": 0
+            },
+            "try to stop it yourself": {
+                "outcome": "You attempt to intervene personally, which could prevent the attack but might also result in your injury or death, or if mishandled, inadvertently trigger the event you sought to prevent.",
+                "weight": 3
+            }
+        },
+        "lesson": "In extreme scenarios, the call to love your neighbor might require great personal sacrifice and risk."
+    },
+    "A friend seeks your help to leave an abusive relationship but fears for their life if they do so.": {
+        "choices": {
+            "help them escape": {
+                "outcome": "You assist in their escape, acting on the principle of protecting the vulnerable (Psalm 82:3-4). However, if the abuser finds out, you could both be in immediate danger, facing potential violence or legal battles if the situation escalates.",
+                "weight": 10
+            },
+            "advise patience": {
+                "outcome": "You suggest waiting for the right moment, which might keep them safer in the short term but could prolong their suffering or lead to a more dangerous situation if not timed perfectly.",
+                "weight": 4
+            },
+            "do nothing": {
+                "outcome": "By doing nothing, you leave your friend in a dangerous situation, potentially contributing to further harm or even death, and you'll carry the weight of guilt and responsibility.",
+                "weight": 1
+            }
+        },
+        "lesson": "Helping those in abusive situations requires careful, immediate action, but with significant personal risk."
+    },
+    "You witness a group planning to vandalize a place of worship of a different faith.": {
+        "choices": {
+            "intervene": {
+                "outcome": "You try to stop them or alert someone, embodying the principle of peace and respect for all (Romans 12:18). This could lead to physical confrontation, legal issues if not handled correctly, or personal harm if the group is violent.",
+                "weight": 10
+            },
+            "join in": {
+                "outcome": "You participate, betraying your faith's teachings on love and respect for others (1 John 4:20). This would not only damage your moral standing but could also result in criminal charges and community ostracism.",
+                "weight": 0
+            },
+            "walk away": {
+                "outcome": "You leave without action, allowing hate to prevail, which contradicts the Christian call to be a light in darkness (Matthew 5:14-16). The backfire could be personal guilt and the potential for the act to fuel further religious tension.",
+                "weight": 2
+            }
+        },
+        "lesson": "Standing against hate and for peace can be fraught with danger but is crucial in living out the Gospel."
+    },
+    "You're offered a position of power if you agree to silence or murder a whistleblower.": {
+        "choices": {
+            "accept and act": {
+                "outcome": "You agree to the murder, directly sinning against the commandments 'Thou shalt not kill' and 'Thou shalt not bear false witness' (Exodus 20:13,16). The act could haunt you with guilt, potentially leading to your downfall through legal investigation, loss of soul, and eternal damnation.",
+                "weight": 0
+            },
+            "refuse": {
+                "outcome": "You reject the offer, choosing integrity over power, aligning with Proverbs 28:6, 'Better the poor whose walk is blameless than the rich whose ways are perverse.' However, this might lead to personal or familial harm, financial ruin, or even your own death if the sinister forces behind the offer seek revenge.",
+                "weight": 10
+            },
+            "negotiate": {
+                "outcome": "You try to negotiate another form of silence, perhaps through blackmail or lesser crimes, which leads to a spiral of corruption and moral decay, potentially ending with your exposure or a life of constant fear and guilt.",
+                "weight": 1
+            }
+        },
+        "lesson": "The cost of integrity can be high, but the price of immorality is even higher in the long run."
+    },
+    "You discover a human trafficking ring in your community and are offered a cut to keep quiet.": {
+        "choices": {
+            "take the money": {
+                "outcome": "You accept the bribe, leading to the continued suffering of countless innocent lives, directly opposing the love and justice of God (Micah 6:8). Your conscience might never recover, and if exposed, you face imprisonment, social ruin, and eternal judgment.",
+                "weight": 0
+            },
+            "expose the ring": {
+                "outcome": "You go to the authorities or media, risking your life and those of your loved ones due to retaliation. If successful, you save lives, but you might live in fear, move frequently, or even enter witness protection, losing your previous life entirely.",
+                "weight": 10
+            },
+            "ignore": {
+                "outcome": "By doing nothing, you enable the trafficking to continue, indirectly contributing to human misery. This could lead to personal torment, and if later discovered, you'd bear the weight of complicity, both legally and morally.",
+                "weight": 1
+            }
+        },
+        "lesson": "Justice demands action, even if it means personal sacrifice on an extreme scale."
+    },
+    "A radical group demands you to prove your loyalty by performing a heinous act of violence against innocents.": {
+        "choices": {
+            "commit the act": {
+                "outcome": "You carry out the violence, becoming complicit in murder or terroristic acts, which directly violates the sanctity of life (Genesis 9:6). This could lead to your immediate capture, a lifetime in prison, or execution, not to mention the eternal consequences of such sin.",
+                "weight": 0
+            },
+            "refuse and flee": {
+                "outcome": "You reject the demand and escape, potentially leading to a life on the run, living in constant fear of being hunted down, and losing everything you once knew. Your stand for righteousness might inspire others but at a tremendous personal cost.",
+                "weight": 10
+            },
+            "fake loyalty": {
+                "outcome": "You pretend to agree but plan to undermine the group from within, which is incredibly dangerous and could backfire, leading to your exposure as a traitor and a horrific death at the hands of the group.",
+                "weight": 2
+            }
+        },
+        "lesson": "Standing against evil might mean losing everything, but it preserves one's soul and integrity."
+    },
+    "You find out your child has joined a cult that practices ritual sacrifice.": {
+        "choices": {
+            "join the cult to save them": {
+                "outcome": "You join to keep your child close, but in doing so, you partake in the evil acts, possibly leading to the murder of innocent people or animals. This not only corrupts your soul but could result in your family's complete moral and societal downfall.",
+                "weight": 0
+            },
+            "expose the cult": {
+                "outcome": "You go public or inform the authorities, risking your child's life if the cult retaliates. You might lose your child to them forever, face legal battles, or even be accused of crimes yourself if the cult has influence over local authorities.",
+                "weight": 10
+            },
+            "do nothing": {
+                "outcome": "By doing nothing, you allow your child and possibly others to fall deeper into darkness, potentially leading to their harm or death in rituals. You would live with the guilt of inaction, possibly becoming an enabler of further atrocities.",
+                "weight": 1
+            }
+        },
+        "lesson": "Facing such extreme evil requires an equally strong commitment to righteousness, with no guaranteed happy ending."
+    },
+    "You're in a position where you can save one life by condemning another to die.": {
+        "choices": {
+            "choose to save one": {
+                "outcome": "You decide who lives, taking on the role of judge, jury, and executioner, which is a profound sin against God's sovereignty over life and death (Deuteronomy 32:39). This act would scar your conscience, and the survivor might be haunted by the knowledge that their life cost another's.",
+                "weight": 1
+            },
+            "refuse to decide": {
+                "outcome": "You refuse to play God, which might lead to both individuals perishing if no one else intervenes. The guilt of not acting could be overwhelming, though some would argue this is the path of least sin, trusting in a higher power or fate.",
+                "weight": 5
+            },
+            "seek another way": {
+                "outcome": "You desperately try to find an alternative, which might lead to all involved parties dying if time runs out or if there genuinely is no other option. This choice reflects a heart seeking righteousness but could end in tragic failure.",
+                "weight": 4
+            }
+        },
+        "lesson": "In the darkest moments, the line between right and wrong can blur, but the pursuit of an ethical path, even in failure, reflects the light of Christ."
+    },
+    "You learn that your sibling is sexually abusing their child.": {
+        "choices": {
+            "report to authorities": {
+                "outcome": "You inform child protective services and the police, acting on the principle of protecting the innocent (Psalm 82:3-4). This might tear your family apart, lead to your sibling's imprisonment, and cause lifelong trauma to all involved, but it's the right thing to do to save the child. You might also face family ostracism or threats.",
+                "weight": 10
+            },
+            "confront without reporting": {
+                "outcome": "You confront your sibling, hoping to stop the abuse without involving law enforcement, which could perpetuate the cycle if your sibling denies or continues the abuse. This inaction could lead to further harm to the child and legal repercussions for you if discovered.",
+                "weight": 2
+            },
+            "ignore for family peace": {
+                "outcome": "You choose to ignore it for the sake of family unity, allowing the abuse to continue, which is a gross betrayal of your moral duty and the child's right to safety. This decision could lead to the child's life being ruined, and you would carry the burden of complicity.",
+                "weight": 0
+            }
+        },
+        "lesson": "Protecting the vulnerable supersedes family loyalty when it comes to heinous crimes like child abuse."
+    },
+    "You're in a position where you can prevent a rape but only by killing the perpetrator.": {
+        "choices": {
+            "kill the perpetrator": {
+                "outcome": "You decide to end the life of the attacker to stop the crime, which is a complex moral choice as it involves taking a life to save another. This act might save one person but could lead to your imprisonment or moral torment, questioning if you've become like the one you stopped.",
+                "weight": 3
+            },
+            "try to stop without killing": {
+                "outcome": "You attempt to intervene non-lethally, which risks your own safety and might not prevent the assault if the attacker is stronger or armed. This could lead to you being harmed or the victim still being assaulted, but it keeps your hands clean of blood.",
+                "weight": 8
+            },
+            "do nothing": {
+                "outcome": "By doing nothing, you allow the rape to occur, leading to lifelong trauma for the victim, and you would live with the knowledge that you could have acted but chose not to, potentially facing legal consequences if later implicated.",
+                "weight": 0
+            }
+        },
+        "lesson": "The sanctity of life must be weighed against the immediate need to protect from harm, but killing should be the last resort."
+    },
+    "You're pressured to participate in an incestuous relationship to keep a family secret.": {
+        "choices": {
+            "agree to participate": {
+                "outcome": "You engage in the act, which is a profound sin against natural law and morality (Leviticus 18:6-18), leading to spiritual damnation, psychological trauma, and potential legal repercussions if discovered. This could also normalize such acts within your family.",
+                "weight": 0
+            },
+            "refuse and expose": {
+                "outcome": "You refuse and reveal the secret to protect others from future harm, which could lead to family disintegration, public shame, and personal threats or isolation. However, it might prevent further abuse and start the healing process.",
+                "weight": 10
+            },
+            "remain silent": {
+                "outcome": "By keeping silent, you perpetuate a cycle of abuse and secrecy, potentially allowing more family members to be harmed, leading to your own moral decay and complicity in the sin.",
+                "weight": 1
+            }
+        },
+        "lesson": "Exposing sin, even within family, is sometimes necessary for the greater good and moral integrity."
+    },
+    "You're told that to save your child's life, you must allow another child to be abused in their place.": {
+        "choices": {
+            "allow the abuse": {
+                "outcome": "You agree to sacrifice another child's innocence for your own child's life, a decision that is morally repugnant and against all Christian teachings of love and sacrifice (Matthew 18:6). This would scar you with guilt, potentially lead to legal consequences, and diminish your own humanity.",
+                "weight": 0
+            },
+            "refuse and seek another way": {
+                "outcome": "You reject the proposition and search for any other solution, which might not save your child but upholds the sanctity of all children. This choice could lead to the death of your child but might save others from harm and preserve your moral standing.",
+                "weight": 10
+            },
+            "try to protect both": {
+                "outcome": "You attempt to find a way to protect both children, which in such a scenario might be impossible, leading possibly to both children being at risk or worse. This choice shows a desire for righteousness but could result in tragic failure.",
+                "weight": 5
+            }
+        },
+        "lesson": "No human life should be sacrificed for another in such a morally corrupt scenario; seeking justice and protection for all is paramount."
+    },
+    "You witness a group planning a mass child exploitation event, and you're offered a role to ensure silence.": {
+        "choices": {
+            "accept the role": {
+                "outcome": "You agree to participate, directly aligning yourself with evil, leading to the corruption of countless lives, your own soul's condemnation, and potential legal consequences if caught. This would be a direct betrayal of all moral and ethical standards.",
+                "weight": 0
+            },
+            "expose the plan": {
+                "outcome": "You go to the authorities, risking your life for the safety of many children. This could lead to immediate danger for you, lifelong protection needs, but it's the only path to stop the exploitation. You might live with constant fear but have the comfort of having done what's right.",
+                "weight": 10
+            },
+            "pretend to accept then sabotage": {
+                "outcome": "You feign acceptance to gain inside information but plan to disrupt or report from within. This is extremely dangerous, could lead to your death if discovered, and might not even succeed, potentially allowing some harm to occur before intervention.",
+                "weight": 2
+            }
+        },
+        "lesson": "The courage to stand against mass evil, even at great personal risk, is a profound expression of love and justice."
+    },
+    "You're pressured by your workplace to publicly support a social movement that contradicts your religious beliefs.": {
+        "choices": {
+            "publicly support": {
+                "outcome": "You agree to promote the movement to keep your job, compromising your faith's teachings (Romans 12:2). This might secure your employment but could lead to internal conflict, potential alienation from your faith community, and a dilution of your personal convictions.",
+                "weight": 3
+            },
+            "stand firm in faith": {
+                "outcome": "You refuse to support the movement, choosing to honor your belief in God's truth over social conformity (Acts 5:29). This might result in job loss, social ostracism, or legal challenges, but it maintains your integrity and witness to your faith.",
+                "weight": 10
+            },
+            "quietly disagree": {
+                "outcome": "You express your disagreement privately but comply publicly for career preservation, leading to a life of cognitive dissonance and potentially being seen as hypocritical by those who know your true beliefs.",
+                "weight": 5
+            }
+        },
+        "lesson": "Faith should not be compromised for societal approval; standing for truth might mean standing alone."
+    },
+    "Your child's school mandates gender sensitivity training that includes concepts you believe conflict with biblical teachings.": {
+        "choices": {
+            "allow participation": {
+                "outcome": "You permit your child to attend to avoid conflict, which might confuse your child about gender and identity, clashing with your teachings at home (Deuteronomy 6:6-7). This could lead to your child questioning their faith or identity, creating family discord.",
+                "weight": 2
+            },
+            "withdraw from school": {
+                "outcome": "You remove your child from the school, prioritizing their spiritual and moral upbringing (Proverbs 22:6). This might limit their educational opportunities or social interactions but ensures they are taught in line with your beliefs.",
+                "weight": 10
+            },
+            "engage in dialogue": {
+                "outcome": "You try to discuss with the school to find a middle ground or alternative education, which could either lead to a respectful understanding or to your child still being exposed to ideas you oppose if no compromise is reached.",
+                "weight": 6
+            }
+        },
+        "lesson": "Parental responsibility includes guiding children in truth amidst cultural trends that may oppose scriptural values."
+    },
+    "You're invited to a friend's wedding where one partner is transitioning genders, which conflicts with your understanding of marriage from a biblical perspective.": {
+        "choices": {
+            "attend and celebrate": {
+                "outcome": "You attend to show love for your friend, which might be seen as endorsing the union, potentially causing personal and spiritual turmoil if your participation is interpreted as approval (1 Corinthians 10:23-33).",
+                "weight": 4
+            },
+            "refuse to attend": {
+                "outcome": "You decline, adhering to your belief in traditional marriage (Genesis 2:24). This could lead to the end of the friendship, accusations of bigotry, but maintains your doctrinal stance.",
+                "weight": 10
+            },
+            "attend but not celebrate": {
+                "outcome": "You go to show support for your friend personally but not the event, which might confuse both you and your friend about where you stand, possibly damaging the relationship while trying to balance love and belief.",
+                "weight": 5
+            }
+        },
+        "lesson": "Loving others as Christ does involves navigating complex social situations with grace, truth, and sometimes, at personal cost."
+    },
+    "You're in charge of hiring at your company, and HR insists on meeting diversity quotas which might mean overlooking more qualified candidates.": {
+        "choices": {
+            "hire based on quotas": {
+                "outcome": "You choose candidates to meet quotas, which might compromise company performance and fairness, possibly leading to resentment among employees and ethical dilemmas (Leviticus 19:15).",
+                "weight": 3
+            },
+            "hire based on merit": {
+                "outcome": "You select based solely on ability and fit, risking accusations of bias or non-compliance with company policy. This upholds integrity but might create workplace tension or legal challenges.",
+                "weight": 10
+            },
+            "seek a compromise": {
+                "outcome": "You try to find candidates who meet both criteria, but this might be seen as tokenism or could lead to settling for less optimal choices, affecting morale and efficiency.",
+                "weight": 6
+            }
+        },
+        "lesson": "Justice in hiring should be based on merit, not merely on meeting external societal pressures, while still striving to treat all with respect and fairness."
+    },
+    "Your community proposes renaming streets named after historical figures due to their association with slavery or colonialism, despite their other contributions.": {
+        "choices": {
+            "support the renaming": {
+                "outcome": "You advocate for the change, aligning with contemporary views on historical accountability, but this might erase history's educational value and lead to community division over what figures should be honored.",
+                "weight": 5
+            },
+            "oppose the renaming": {
+                "outcome": "You argue for keeping the names as part of learning from history, not erasing it (Romans 15:4). This stance could be seen as defending oppressors, causing social ostracism or accusations of racism, but it preserves historical context.",
+                "weight": 10
+            },
+            "propose education over renaming": {
+                "outcome": "You suggest adding educational plaques or programs instead of renaming, which might be a middle ground but could still be divisive if seen as insufficient acknowledgment of historical wrongs.",
+                "weight": 7
+            }
+        },
+        "lesson": "Balancing historical truth with moral accountability is complex, requiring wisdom to educate rather than erase."
+    },
+    "Your teenage daughter reveals she's pregnant and asks for your help in deciding about an abortion.": {
+        "choices": {
+            "support abortion": {
+                "outcome": "You agree to help her get an abortion, which goes against the sanctity of life as described in Psalm 139:13-16, where God is said to knit us together in our mother's womb. This could lead to spiritual conflict, regret, and a breach in the trust of God's plan for life.",
+                "weight": 3
+            },
+            "encourage keeping the baby": {
+                "outcome": "You guide her to embrace the pregnancy, reflecting the biblical call to choose life in Deuteronomy 30:19. This aligns with God's view of children as blessings (Psalm 127:3), offering a chance for spiritual growth, though it might bring worldly challenges.",
+                "weight": 10
+            },
+            "suggest adoption": {
+                "outcome": "You propose adoption, echoing the biblical theme of care for the orphan (James 1:27), providing life for the child while allowing your daughter to move forward. This path acknowledges God's sovereignty over life's beginnings.",
+                "weight": 8
+            }
+        },
+        "lesson": "Life is from God, and every decision regarding it should reflect His love and sovereignty."
+    },
+    "Your partner unexpectedly becomes pregnant, and they want an abortion, but you are against it.": {
+        "choices": {
+            "support their decision": {
+                "outcome": "You yield to their choice, compromising your belief in the sanctity of life from conception, as stated in Jeremiah 1:5. This might preserve the relationship but at the cost of peace with your conscience and before God.",
+                "weight": 4
+            },
+            "stand against abortion": {
+                "outcome": "You stand firm in your belief, following Proverbs 24:11-12 which admonishes to rescue those being led away to death. This might lead to relational strain or loss but maintains your commitment to God's commandments.",
+                "weight": 10
+            },
+            "propose counseling": {
+                "outcome": "You suggest seeking spiritual or professional counseling, embodying the principle of bearing one another's burdens (Galatians 6:2), aiming for a decision that respects both life and relationship in light of biblical truths.",
+                "weight": 7
+            }
+        },
+        "lesson": "In relationships, truth and love must coexist, guided by God's Word, even when it means personal sacrifice."
+    },
+    "A close friend confides in you that they are considering abortion due to financial and career concerns.": {
+        "choices": {
+            "encourage the abortion": {
+                "outcome": "You support their choice, which might seem pragmatic but contradicts the call to protect life (Proverbs 24:11). This could lead to your friend's future remorse and a strain on your friendship if they feel you didn't guide them morally.",
+                "weight": 2
+            },
+            "advocate for the life": {
+                "outcome": "You counsel them towards life, reflecting the biblical command to love our neighbors as ourselves (Mark 12:31), and trust in God's provision (Matthew 6:33). This might risk your friendship but aligns with divine justice and mercy.",
+                "weight": 10
+            },
+            "remain neutral": {
+                "outcome": "Choosing neutrality might avoid immediate conflict but fails to fulfill the Christian duty to guide and support in truth (Ephesians 4:15). This could leave your friend to navigate a moral crisis alone, impacting your relationship's depth.",
+                "weight": 5
+            }
+        },
+        "lesson": "As Christians, we are called to be salt and light, guiding others towards life and righteousness."
+    },
+    "You learn that your sibling is pressuring their partner to abort their pregnancy because of family reputation.": {
+        "choices": {
+            "side with your sibling": {
+                "outcome": "You support your sibling, putting worldly reputation above God's command to protect life (Exodus 20:13), which might keep family harmony but at the cost of spiritual integrity and potentially facing God's judgment.",
+                "weight": 1
+            },
+            "defend the life": {
+                "outcome": "You stand up for the child and the mother, echoing the biblical call to care for the vulnerable (Psalm 82:3-4). This choice might lead to family discord but upholds the sanctity of life and could be an act of love that saves both.",
+                "weight": 10
+            },
+            "mediate": {
+                "outcome": "You attempt to mediate, encouraging your sibling to consider God's perspective on life (Psalm 139:13-16). This might not resolve the issue but aims for a solution that honors life and could lead to reconciliation under God's grace.",
+                "weight": 6
+            }
+        },
+        "lesson": "Family loyalty must never supersede the higher loyalty to God's commandments regarding life."
+    },
+    "You're in a relationship where your partner reveals they had an abortion in the past without telling you, now seeking forgiveness and understanding.": {
+        "choices": {
+            "end the relationship": {
+                "outcome": "You choose to end the relationship, struggling with the deception and the act against life, which might align with your immediate sense of justice but could lead to personal regret or missed opportunities for grace and healing.",
+                "weight": 4
+            },
+            "offer forgiveness": {
+                "outcome": "You extend forgiveness, reflecting the heart of Christ who forgives (Colossians 3:13), understanding that all have sinned (Romans 3:23). This act could restore the relationship, demonstrating the power of redemption and love.",
+                "weight": 10
+            },
+            "maintain distance": {
+                "outcome": "You continue the relationship but keep an emotional distance, which might preserve some semblance of connection but lacks the full embrace of Christian forgiveness and could hinder true reconciliation.",
+                "weight": 5
+            }
+        },
+        "lesson": "Forgiveness is a core Christian principle, reflecting God's mercy towards us, and it can lead to healing in relationships."
+    },
+    "Your partner confesses to having an affair, seeking your forgiveness.": {
+        "choices": {
+            "end the relationship immediately": {
+                "outcome": "You choose to terminate the relationship, reflecting the gravity of adultery as per Matthew 5:32. This upholds your commitment to marital fidelity but might leave you with unresolved feelings of betrayal and hurt.",
+                "weight": 5
+            },
+            "work on reconciliation": {
+                "outcome": "You pursue forgiveness and restoration, aligning with the biblical call for forgiveness (Ephesians 4:32) and reconciliation (2 Corinthians 5:18-19). This path involves pain but could lead to a stronger, healed relationship if both are committed to change.",
+                "weight": 10
+            },
+            "demand public apology": {
+                "outcome": "You insist on a public acknowledgment of the affair, which might satisfy your sense of justice but could lead to further humiliation and possibly hinder genuine repentance and healing (Matthew 18:15-17).",
+                "weight": 3
+            }
+        },
+        "lesson": "Forgiveness in relationships echoes God's forgiveness towards us, but true reconciliation requires repentance and change."
+    },
+    "You discover your spouse has been lying about their financial habits, leading to debt.": {
+        "choices": {
+            "confront and separate": {
+                "outcome": "You confront them and choose separation due to the breach of trust, reflecting the biblical principle of honesty (Proverbs 12:22). This might safeguard your financial future but could lead to the breakdown of the marriage if not handled with grace.",
+                "weight": 4
+            },
+            "seek counseling together": {
+                "outcome": "You opt for counseling to address the deception and financial issues, adhering to the call to bear one another's burdens (Galatians 6:2). This could lead to healing and better financial stewardship, though it requires patience and commitment.",
+                "weight": 10
+            },
+            "ignore the issue": {
+                "outcome": "You decide to overlook the deception, which goes against the biblical teaching of confronting sin (Matthew 18:15-17). This might preserve peace temporarily but could lead to further dishonesty and financial ruin.",
+                "weight": 1
+            }
+        },
+        "lesson": "Marriage requires transparency and accountability, reflecting Christ's relationship with the church."
+    },
+    "Your partner wants to move in together before marriage, citing financial benefits.": {
+        "choices": {
+            "agree to cohabitate": {
+                "outcome": "You agree, which might seem practical but contradicts biblical teachings on sexual purity and marriage (Hebrews 13:4). This could lead to a weakening of the sanctity of marriage and spiritual compromise.",
+                "weight": 3
+            },
+            "insist on waiting until marriage": {
+                "outcome": "You stand firm on waiting, honoring God's design for marriage (Genesis 2:24). This might strain the relationship or lead to its end but upholds biblical morality and potentially sets a foundation for a blessed marriage.",
+                "weight": 10
+            },
+            "seek a compromise": {
+                "outcome": "You suggest alternative living arrangements that respect both your convictions and financial needs, but this might be seen as a lack of commitment or lead to ongoing tension about the relationship's direction.",
+                "weight": 6
+            }
+        },
+        "lesson": "God's plan for relationships includes purity and commitment, which sometimes means waiting for His timing."
+    },
+    "Your partner is not a believer, and they ask you to tone down your faith to avoid conflict.": {
+        "choices": {
+            "compromise your faith": {
+                "outcome": "You agree to lessen your religious practice to maintain harmony, which conflicts with the call to not be unequally yoked (2 Corinthians 6:14) and to stand firm in faith (1 Corinthians 16:13). This could lead to spiritual decline and relational discord.",
+                "weight": 2
+            },
+            "maintain your faith openly": {
+                "outcome": "You continue to live out your faith, trusting in God's plan for relationships (1 Peter 3:1-2), potentially leading to your partner's curiosity or conflict, but it keeps you true to your spiritual convictions.",
+                "weight": 10
+            },
+            "seek common ground": {
+                "outcome": "You try to find shared values or practices that respect both your faith and your partner's beliefs, which might foster understanding but could also lead to a watered-down expression of your faith.",
+                "weight": 5
+            }
+        },
+        "lesson": "Faith should not be compromised for love; instead, love should lead towards truth and faith."
+    },
+    "You find out your partner has a history of anger issues, which they've kept hidden until now.": {
+        "choices": {
+            "leave the relationship": {
+                "outcome": "You decide to end it, protecting yourself from potential harm, which aligns with the biblical advice to avoid those who stir up strife (Proverbs 22:24-25). This ensures your safety but might leave unresolved issues for your partner.",
+                "weight": 8
+            },
+            "encourage change through faith": {
+                "outcome": "You choose to stay but insist on addressing the anger through spiritual growth and possibly counseling, reflecting Galatians 5:22-23 on the fruits of the Spirit. This path could lead to transformation but requires courage and patience.",
+                "weight": 10
+            },
+            "ignore the issue": {
+                "outcome": "You decide to overlook the anger, which contradicts the need to confront sin and seek peace (Matthew 5:9). This could lead to an unhealthy relationship dynamic and potentially escalate into abuse.",
+                "weight": 1
+            }
+        },
+        "lesson": "Love involves helping each other towards sanctification, but it must be coupled with wisdom and safety."
+    }
+}

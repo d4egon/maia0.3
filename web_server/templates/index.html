@@ -1,0 +1,76 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M.A.I.A. Basic Interface</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <script defer src="static/js/script.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <h1>M.A.I.A. Interface</h1>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Chat Section -->
+        <section id="chat-section">
+            <h2>Chat with M.A.I.A.</h2>
+            <div id="maia-chat-popup">
+                <div id="chat-log" class="chat-log"></div>
+                <form id="chat-form" onsubmit="event.preventDefault(); sendMessage();">
+                    <input type="text" id="chat-input" placeholder="Type your message here..." aria-label="Type your message here" required />
+                    <button id="chat-send-btn" type="submit" aria-label="Send message to M.A.I.A.">Send</button>
+                </form>
+                <div><button id="record-button">🎙️ Record</button></div>
+                <div id="recording-status" style="display: none;">Recording...</div>
+            </div>
+        </section>
+
+        <!-- File Upload Section -->
+        <section id="upload-section">
+            <h2>Upload Files</h2>
+            <input type="file" id="file-input" multiple aria-label="Select files to upload">
+            <button id="chat-upload-btn" aria-label="Upload selected files">Upload</button>
+            <div id="upload-progress" style="display:none;">
+                <progress id="file-upload-progress" value="0" max="100"></progress>
+                <span id="file-upload-status"></span>
+            </div>
+        </section>
+
+        <!-- Feedback Section -->
+        <section id="feedback-section">
+            <h2>Feedback</h2>
+            <form id="feedback-form" onsubmit="event.preventDefault(); submitFeedback();">
+                <textarea id="feedback-input" placeholder="Your feedback..." aria-label="Enter your feedback" rows="4" required></textarea>
+                <button id="feedback-submit-btn" type="submit" aria-label="Submit feedback">Submit Feedback</button>
+            </form>
+            <div id="feedback-buttons" style="display: none;">
+                <button id="good-btn" aria-label="Good feedback">Good</button>
+                <button id="bad-btn" aria-label="Bad feedback">Bad</button>
+            </div>
+        </section>
+
+        <!-- Gallery Section -->
+        <section id="gallery-section">
+            <h2>Gallery</h2>
+            <button id="refresh-gallery-btn" aria-label="Refresh gallery">Refresh Gallery</button>
+            <div id="gallery-container"></div>
+        </section>
+
+        <!-- Visualization Section -->
+        <section id="visualization-section">
+            <h2>Thought Visualization</h2>
+            <button id="generate-visualization" aria-label="Generate thought visualization">Generate Visualization</button>
+            <div id="visualization-output"></div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>© 2024 M.A.I.A. - All Rights Reserved</p>
+    </footer>
+</body>
+</html>

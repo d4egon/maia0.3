@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<title>M.A.I.A. Basic Interface</title>
+				<link rel="stylesheet" href="static/css/style.css">
+					<script defer="" src="static/js/script.js"></script>
+				</head>
+	<body>
+		<!-- Header -->
+		<header>
+			<h1>M.A.I.A. Interface</h1>
+		</header>
+
+		<!-- Main Content -->
+		<main>
+			<!-- Chat Section -->
+			<section id="chat-section">
+				<h2>Chat with M.A.I.A.</h2>
+				<div id="maia-chat-popup">
+					<div id="chat-log" class="chat-log"></div>
+					<input type="text" id="chat-input" placeholder="Type your message here..." />
+					<button id="chat-send-btn">Send</button>
+				</div>
+			</section>
+
+			<!-- File Upload Section -->
+			<section id="upload-section">
+				<h2>Upload Files</h2>
+				<input type="file" id="file-input" multiple="">
+					<button id="chat-upload-btn">Upload</button>
+				</section>
+
+			<!-- Visualization Section -->
+			<section id="visualization-section">
+				<h2>Thought Visualization</h2>
+				<button id="generate-visualization">Generate Visualization</button>
+				<div id="visualization-output"></div>
+			</section>
+
+			<!-- Gallery Section -->
+			<section id="gallery-section">
+				<h2>Gallery</h2>
+				<div id="gallery-container"></div>
+			</section>
+		</main>
+
+		<!-- Footer -->
+		<footer>
+			<p>&copy; 2024 M.A.I.A. - All Rights Reserved</p>
+		</footer>
+	</body>
+</html>
