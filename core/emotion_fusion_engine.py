@@ -1,8 +1,7 @@
-# Filename: /core/emotion_fusion_engine.py
-
 import logging
 from typing import Dict, List, Tuple
 from core.emotion_engine import EmotionEngine
+from core.memory_engine import MemoryEngine
 from PIL import Image
 import numpy as np
 from transformers import pipeline
@@ -12,18 +11,16 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class EmotionFusionEngine:
-    def __init__(self, memory_engine, nlp_engine, db):
+    def __init__(self, memory_engine: MemoryEngine, nlp_engine):
         """
         Initialize the EmotionFusionEngine with memory and NLP engines, along with visual emotion analysis.
 
         :param memory_engine: An instance for memory operations.
         :param nlp_engine: An instance for NLP operations.
-        :param db: Database instance for emotion engine.
         """
-        self.emotion_engine = EmotionEngine(db)
         self.memory_engine = memory_engine
         self.nlp_engine = nlp_engine
-        self.db = db
+        self.emotion_engine = EmotionEngine(memory_engine)
 
         # Visual emotion analysis model
         try:
@@ -48,8 +45,9 @@ class EmotionFusionEngine:
             visual_emotion, visual_confidence = self.analyze_visual_emotion(visual_input)
             text_emotion, text_confidence = self.analyze_text_emotion(text_input)
 
-            # Search contextual memory
-            context_data = self.memory_engine.search_memory(text_input)
+            # Search contextual memory by embedding for more accurate matches
+            text_embedding = self.memory_engine.model.encode([text_input])[0].tolist()
+            context_data = self.memory_engine.search_memory_by_embedding(text_embedding)
             context_emotion, context_confidence = self.analyze_context_emotion(context_data)
 
             # Decision Fusion Logic
@@ -59,11 +57,18 @@ class EmotionFusionEngine:
                 context_emotion, context_confidence
             )
 
-            # Store the fused memory
-            self.memory_engine.store_memory(
-                f"Image emotion: {visual_emotion}, NLP emotion: {text_emotion}, Context emotion: {context_emotion}",
-                final_emotion,
-                additional_data={"visual_input": visual_input, "text_input": text_input}
+            # Store the fused memory with semantic embedding for future searches
+            fused_memory = f"Image emotion: {visual_emotion}, NLP emotion: {text_emotion}, Context emotion: {context_emotion}"
+            self.memory_engine.create_memory_node(
+                fused_memory,
+                {
+                    "type": "emotion_fusion",
+                    "visual_input": visual_input,
+                    "text_input": text_input,
+                    "final_emotion": final_emotion,
+                    "confidence": total_confidence
+                },
+                [final_emotion]  # Use emotion as keyword for searching
             )
 
             logger.info(f"[FUSION RESULT] Final Emotion: {final_emotion} (Total Confidence: {total_confidence})")
@@ -82,7 +87,6 @@ class EmotionFusionEngine:
         try:
             image = Image.open(visual_input).convert('RGB')
             predictions = self.visual_emotion_model(image)
-            # Map the predicted class to an emotion if possible, otherwise use the class name
             emotion = self._map_prediction_to_emotion(predictions[0]['label'])
             confidence = predictions[0]['score']
             logger.info(f"[VISUAL] Detected Emotion: {emotion} (Confidence: {confidence})")
@@ -138,11 +142,8 @@ class EmotionFusionEngine:
                 logger.info("[CONTEXT] No relevant context found.")
                 return "neutral", 0.0
 
-            context_text = " ".join([m["text"] for m in context_data])
-            context_emotion, confidence = self.emotion_engine.contextual_emotion_analysis(
-                text=context_text,
-                context=[m["text"] for m in context_data]
-            )
+            context_texts = [m["text"] for m in context_data]
+            context_emotion, confidence = self.emotion_engine.contextual_emotion_analysis(" ".join(context_texts))
             logger.info(f"[CONTEXT] Detected Emotion: {context_emotion} (Confidence: {confidence})")
             return context_emotion, confidence
         except Exception as e:
@@ -177,14 +178,14 @@ class EmotionFusionEngine:
         logger.info(f"[FINAL EMOTION] {final_emotion} (Total Confidence: {total_confidence})")
         return final_emotion, total_confidence
 
-    def decay_emotional_states(self):
+    def decay_emotional_states(self) -> Dict[str, float]:
         """
         Apply time-based decay to emotional confidence scores.
     
         :return: Updated emotional states.
         """
         try:
-            for emotion, score in self.emotion_engine.dynamic_emotional_state.items():
+            for emotion in list(self.emotion_engine.dynamic_emotional_state.keys()):
                 self.emotion_engine.dynamic_emotional_state[emotion] *= 0.9  # 10% decay
             logger.info(f"[DECAY APPLIED] {self.emotion_engine.dynamic_emotional_state}")
             return self.emotion_engine.dynamic_emotional_state
@@ -200,7 +201,14 @@ class EmotionFusionEngine:
         :return: Dominant emotion.
         """
         try:
-            prioritized = max(context_emotions, key=lambda x: x.get("confidence", 0))
+            if not context_emotions:
+                return "neutral"
+            
+            # Sort by confidence, then by thematic relevance if available
+            prioritized = sorted(context_emotions, 
+                                 key=lambda x: (x.get("confidence", 0), 
+                                                x.get("thematic_relevance", 0)),
+                                 reverse=True)[0]
             logger.info(f"[PRIORITIZED EMOTION] {prioritized}")
             return prioritized.get("emotion", "neutral")
         except Exception as e:

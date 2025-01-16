@@ -1,21 +1,29 @@
 import logging
-import spacy
 from typing import List, Dict
+from sentence_transformers import SentenceTransformer
 
 # Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Load spaCy model
-nlp = spacy.load('en_core_web_sm')
+# Load SentenceTransformer model
+model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')
 
 class SentenceParser:
-    def parse(self, tokens: List[Dict[str, str]]) -> Dict[str, List[str]]:
+    def __init__(self):
         """
-        Parse a list of tokenized dictionaries to identify grammatical components using spaCy.
+        Initialize SentenceParser with a SentenceTransformer model for semantic analysis.
+        """
+        self.model = model
 
-        :param tokens: List of dictionaries, where each dictionary represents a token with 'type' and 'value'.
+    def parse(self, tokenized_data: Dict[str, List[Dict[str, str]]]) -> Dict[str, List[str]]:
+        """
+        Parse a dictionary containing tokenized text and its embedding to identify grammatical components.
+
+        :param tokenized_data: Dictionary with 'tokens' and 'embedding' keys, where 'tokens' is a list of token dictionaries.
         :return: A dictionary containing parsed grammatical components.
+
+        :raises ValueError: If the input data structure is not as expected.
         """
         parsed = {
             "subject": [],
@@ -26,52 +34,39 @@ class SentenceParser:
                 "noun_phrases": [],
                 "verb_phrases": [],
                 "prepositional_phrases": []
-            }
+            },
+            "semantic_embedding": []
         }
 
         try:
+            if not isinstance(tokenized_data, dict) or 'tokens' not in tokenized_data or 'embedding' not in tokenized_data:
+                raise ValueError("Input must be a dictionary with 'tokens' and 'embedding' keys.")
+
+            tokens = tokenized_data['tokens']
             if not isinstance(tokens, list) or not tokens:
-                raise ValueError("Input must be a non-empty list of token dictionaries.")
+                raise ValueError("Tokens must be a non-empty list of token dictionaries.")
 
             text = ' '.join([token['value'] for token in tokens])
-            doc = nlp(text)
+            doc = self.model.encode([text])[0].tolist()  # Here we're using our own model to get sentence embedding
+            parsed['semantic_embedding'] = doc
 
-            for token in doc:
-                if token.dep_ == 'nsubj':
-                    parsed['subject'].append(token.text)
-                elif token.pos_ == 'VERB':
-                    parsed['verb'].append(token.text)
-                elif token.dep_ == 'dobj':
-                    parsed['object'].append(token.text)
-                elif token.pos_ in ['ADJ', 'ADV']:
-                    parsed['modifiers'].append(token.text)
+            # Basic grammatical parsing - this is simplified due to not using spaCy
+            for token in tokens:
+                if token['type'] == 'word':
+                    word = token['value']
+                    if word in ['am', 'is', 'are', 'was', 'were', 'be', 'been']:
+                        parsed['verb'].append(word)
+                    elif word in ['i', 'you', 'he', 'she', 'it', 'we', 'they', 'this', 'that']:
+                        parsed['subject'].append(word)
+                    elif word in ['the', 'a', 'an']:
+                        parsed['modifiers'].append(word)
+                    # Note: This is very basic and doesn't capture objects or more complex structures accurately
 
-            # Extract noun phrases
-            parsed['phrases']['noun_phrases'] = [np.text for np in doc.noun_chunks]
-
-            # Extract verb phrases (this is a basic approach, consider expanding)
-            verb_phrases = []
-            for sent in doc.sents:
-                vp = []
-                for token in sent:
-                    if token.pos_ == 'VERB':
-                        vp.append(token.text)
-                        for child in token.children:
-                            if child.dep_ in ['aux', 'neg', 'advmod']:
-                                vp.append(child.text)
-                if vp:
-                    verb_phrases.append(' '.join(vp))
-            parsed['phrases']['verb_phrases'] = verb_phrases
-
-            # Extract prepositional phrases (this is a basic approach, consider expanding)
-            prep_phrases = []
-            for token in doc:
-                if token.dep_ == 'prep':
-                    phrase = [token.text]
-                    for child in token.children:
-                        phrase.append(child.text)
-                    prep_phrases.append(' '.join(phrase))
-            parsed['phrases']['prepositional_phrases'] = prep_phrases
+            # Phrase extraction is simplified due to lack of spaCy's detailed analysis
+            phrases = ' '.join([token['value'] for token in tokens])
+            parsed['phrases']['noun_phrases'] = [phrases]  # Placeholder for noun phrases without detailed parsing
+            parsed['phrases']['verb_phrases'] = [phrases]  # Placeholder for verb phrases
+            parsed['phrases']['prepositional_phrases'] = []  # Placeholder for prepositional phrases
 
             logger.info(f"[PARSE] Tokens parsed into structure: {parsed}")
             return parsed

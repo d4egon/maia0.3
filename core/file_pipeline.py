@@ -9,7 +9,7 @@ from core.emotion_engine import EmotionEngine
 from core.ethics_engine import EthicsEngine
 from core.thought_engine import ThoughtEngine
 from core.conversation_engine import ConversationEngine
-from core.deduplication_engine import DeduplicationEngine
+#from core.deduplication_engine import DeduplicationEngine
 from core.dream_engine import DreamEngine
 from core.context_search import ContextSearchEngine
 from NLP.response_generator import ResponseGenerator
@@ -37,7 +37,7 @@ class FilePipeline:
             self.context_search_engine = ContextSearchEngine(self.neo4j)  # Pass the Neo4j connection to ContextSearchEngine
             self.response_generator = ResponseGenerator(self.memory_engine, self.neo4j)  # Assuming no dependencies required
             self.conversation_engine = ConversationEngine(self.memory_engine, self.response_generator, self.context_search_engine)
-            self.deduplication_engine = DeduplicationEngine()  # No dependencies required
+            #self.deduplication_engine = DeduplicationEngine()  # No dependencies required
             self.dream_engine = DreamEngine(self.memory_engine, self.context_search_engine)
         except Exception as e:
             logger.error(f"Initialization failed: {e}")

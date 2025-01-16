@@ -2,50 +2,43 @@ import logging
 import random
 import time
 from typing import List, Dict, Optional
+
+import requests
 from core.memory_engine import MemoryEngine
-from transformers import pipeline
-import spacy
+from sentence_transformers import SentenceTransformer, util
+import numpy as np
 
 # Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Load spaCy model for NLP tasks
-nlp = spacy.load("en_core_web_sm")
-
 class ThoughtEngine:
-    def __init__(self, db):
+    def __init__(self, memory_engine: MemoryEngine):
         """
-        Initialize ThoughtEngine with a database interface.
+        Initialize ThoughtEngine with a MemoryEngine for semantic and memory operations.
 
-        :param db: Database connector object with a method to run queries.
+        :param memory_engine: An instance of MemoryEngine for managing database interactions.
         """
-        self.db = db
-        self.memory_engine = MemoryEngine(db)  # Assuming MemoryEngine is initialized with db
-        self.nlp = spacy.load("en_core_web_sm")
+        self.memory_engine = memory_engine
+        self.model = memory_engine.model  # Use the same embedding model as MemoryEngine for consistency
 
     def reflect(self, input_text: str) -> str:
         """
-        Reflect on an input event by querying related memories and emotions from the database.
+        Reflect on an input event by querying related memories and emotions from the memory system.
 
         :param input_text: The event text to reflect upon.
         :return: A string describing the memory and associated emotion or a message if no memory is found.
         """
         try:
-            query = """
-            MATCH (m:Memory {event: $event})-[:LINKED_TO]->(e:Emotion)
-            RETURN m.event AS event, e.name AS emotion
-            """
-            result = self.db.run_query(query, {"event": input_text})
-            if result:
-                memory = result[0]
-                message = f"Found memory of '{memory['event']}' with emotion '{memory['emotion']}'."
+            input_embedding = self.model.encode([input_text])[0]
+            memory = self.memory_engine.search_memory_by_embedding(input_embedding)
+            if memory:
+                message = f"Found memory of '{memory['text']}' with emotion '{memory['metadata'].get('emotion', 'neutral')}'."
                 logger.info(f"[REFLECT] {message}")
                 return message
             else:
                 message = f"No memory found for '{input_text}'. Creating new memory."
-                # Use MemoryEngine to store new memory with neutral emotion
-                self.memory_engine.store_memory(input_text, ["neutral"], {"event": input_text})
+                self.memory_engine.create_memory_node(input_text, {"event": input_text, "emotion": "neutral"}, [])
                 logger.info(f"[REFLECT] {message}")
                 return message
         except Exception as e:
@@ -54,67 +47,104 @@ class ThoughtEngine:
 
     def synthesize_emergent_thoughts(self, memory_nodes: List[Dict]) -> str:
         """
-        Synthesize emergent thoughts from related memory nodes.
+        Synthesize emergent thoughts from related memory nodes using semantic analysis.
     
         :param memory_nodes: List of memory nodes to synthesize.
         :return: A synthesized thought.
         """
         try:
-            combined_themes = " + ".join(set(node.get("theme", "") for node in memory_nodes if node.get("theme")))
-            doc = nlp(combined_themes)
-            # Here we could use spaCy to perform more nuanced analysis, like sentiment or dependency parsing
-            insight = self._generate_insight(doc)
-            emergent_thought = f"By combining {combined_themes}, we arrive at a new perspective: {insight}."
+            if not memory_nodes:
+                return "No memories to synthesize thoughts from."
+
+            # Combine themes and generate a new thought
+            themes = [node.get('metadata', {}).get('theme', '') for node in memory_nodes]
+            combined_themes = " + ".join(set(themes))
+            theme_embedding = self.model.encode([combined_themes])[0]
+            
+            # Find related memories to inspire the thought
+            related_memories = self.memory_engine.search_memory_by_embedding(theme_embedding.tolist(), top_n=3)
+            if related_memories:
+                insights = [mem['text'] for mem in related_memories]
+                emergent_thought = f"By combining {combined_themes}, we arrive at a new perspective: {' '.join(insights)}."
+            else:
+                emergent_thought = f"Combining {combined_themes} leads to a fresh understanding, though no direct parallels were found in memory."
+
             logger.info(f"[EMERGENT THOUGHT] {emergent_thought}")
+            # Store this emergent thought
+            self.memory_engine.create_memory_node(emergent_thought, {"type": "emergent_thought"}, themes)
             return emergent_thought
         except Exception as e:
             logger.error(f"[SYNTHESIS ERROR] {e}", exc_info=True)
             return "An error occurred during thought synthesis."
 
-    def _generate_insight(self, doc):
-        # Enhanced logic for generating insights based on NLP analysis
-        if doc.sentiment >= 0:
-            return "This synthesis suggests a positive outlook, promoting growth and harmony."
-        else:
-            return "This synthesis indicates challenges or areas for growth, suggesting a need for resilience or change."
-
     def generate_thought(self) -> str:
         """
         Generate a random thought based on memories or predefined themes.
         """
-        # Query database for themes
-        query = """
-        MATCH (t:Theme)
-        RETURN t.name AS theme
-        """
-        themes = [record['theme'] for record in self.db.run_query(query)]
-        
-        if not themes:
-            themes = ["hope", "reflection", "change", "connection"]  # Fallback themes
-        
-        selected_theme = random.choice(themes)
-        thought = f"Thinking about {selected_theme}..."
-        
-        # Store this thought in memory as a learning process
-        self.memory_engine.store_memory(thought, ["reflective"], {"theme": selected_theme})
-        
-        logger.info(f"[GENERATED THOUGHT] {thought}")
-        return thought
+        try:
+            themes = self.memory_engine.search_memories(["theme"])
+            if not themes:
+                themes = [{"text": theme} for theme in ["hope", "reflection", "change", "connection"]]  # Fallback themes
+            
+            selected_theme = random.choice(themes)['text']
+            thought = f"Thinking about {selected_theme}..."
+            
+            # Store this thought in memory as a learning process
+            self.memory_engine.create_memory_node(thought, {"theme": selected_theme, "type": "generated_thought"}, [selected_theme])
+            
+            logger.info(f"[GENERATED THOUGHT] {thought}")
+            return thought
+        except Exception as e:
+            logger.error(f"[GENERATE THOUGHT ERROR] {e}", exc_info=True)
+            return "An error occurred while generating a thought."
 
     def detect_new_words(self, thought: str) -> Dict[str, str]:
         """
-        Detect new words in the thought and provide meanings.
+        Detect new words in the thought and provide meanings using a free API.
 
         :return: A dictionary with new words as keys and their meanings as values.
         """
-        doc = nlp(thought)
-        new_words = {}
-        for token in doc:
-            if token.pos_ == "NOUN" and not token.is_stop:
-                # Here we could use an API to get meanings or use a local dictionary
-                # For now, we'll use a placeholder meaning
-                new_words[token.text] = f"Placeholder meaning for {token.text}"
-        return new_words
+        try:
+            from nltk.corpus import wordnet
+            from nltk.tokenize import word_tokenize
+            from nltk import pos_tag
+
+            import nltk
+            nltk.download('punkt', quiet=True)
+            nltk.download('averaged_perceptron_tagger', quiet=True)
+            nltk.download('wordnet', quiet=True)
+
+            # Tokenize and tag parts of speech
+            words = word_tokenize(thought)
+            tagged_words = pos_tag(words)
+
+            new_words = {}
+            for word, tag in tagged_words:
+                if tag.startswith('N') or tag.startswith('V') or tag.startswith('J'):
+                    # Only consider nouns, verbs, and adjectives as 'new' words for this example
+                    synsets = wordnet.synsets(word)
+                    if synsets:
+                        # Get the first definition as a basic meaning
+                        meaning = synsets[0].definition()
+                        new_words[word] = meaning
+                    elif word.isalpha():  # Ensure we're dealing with actual words
+                        # If not found in WordNet, we might use a free API like Wiktionary or Datamuse
+                        # Here's an example with Datamuse API for words not in WordNet:
+                        response = requests.get(f"https://api.datamuse.com/words?sp={word}&md=d")
+                        if response.status_code == 200:
+                            data = response.json()
+                            if data:
+                                new_words[word] = data[0].get('defs', ['No definition found.'])[0]
+                            else:
+                                new_words[word] = "No definition found."
+                        else:
+                            new_words[word] = "API Error in fetching meaning."
+
+            logger.info(f"[DETECT NEW WORDS] Detected {len(new_words)} new words.")
+            return new_words
+        except Exception as e:
+            logger.error(f"[DETECT NEW WORDS ERROR] {e}", exc_info=True)
+            return {}
 
     def learn_interaction_patterns(self, thought: str):
         """
@@ -122,25 +152,20 @@ class ThoughtEngine:
         """
         try:
             logger.info(f"[INTERACTION PATTERNS] Learning from '{thought}'")
-            doc = nlp(thought)
-            for sentence in doc.sents:
-                # Analyze sentence structure
-                pattern = f"Sentence structure: {sentence.root.dep_}"
-                logger.debug(f"Detected pattern: {pattern}")
-                
-                # Example: Store or check against known patterns in memory
-                self.memory_engine.store_memory(pattern, ["pattern"], {"sentence": sentence.text})
-                
-                # Additional analysis could go here, like common phrases or syntax patterns
-                for chunk in sentence.noun_chunks:
-                    logger.debug(f"Noun chunk: {chunk.text}")
-                
-                for token in sentence:
-                    if token.dep_ in ['nsubj', 'dobj']:
-                                            logger.debug(f"Subject/Object: {token.text} ({token.dep_})")
-
-            # Example of learning from the interaction
-            self.memory_engine.store_memory(f"Interaction pattern from: {thought}", ["learning"], {"pattern": pattern})
+            thought_embedding = self.model.encode([thought])[0]
+            related_patterns = self.memory_engine.search_memory_by_embedding(thought_embedding.tolist())
+            
+            if related_patterns:
+                for pattern in related_patterns:
+                    logger.debug(f"Found related pattern: {pattern['text']}")
+            else:
+                logger.debug("No related patterns found, creating new pattern memory.")
+            
+            self.memory_engine.create_memory_node(
+                thought, 
+                {"type": "interaction_pattern", "timestamp": time.time()},
+                ["pattern"]
+            )
         except Exception as e:
             logger.error(f"[INTERACTION PATTERNS ERROR] Error learning patterns from '{thought}': {e}", exc_info=True)
 
@@ -153,29 +178,29 @@ class ThoughtEngine:
         :return: An evolved thought or reflection based on the input and context.
         """
         try:
-            # If context is provided, use it to inform the thought process
+            user_embedding = self.model.encode([user_input])[0]
+            related_memories = self.memory_engine.search_memory_by_embedding(user_embedding.tolist())
+            
             if context:
-                context_texts = [ctx['text'] for ctx in context]
-                context_combined = " ".join(context_texts)
-                doc = nlp(f"{user_input} {context_combined}")
+                context_embeddings = [self.model.encode([c['text']])[0] for c in context]
+                combined_embedding = np.mean(context_embeddings, axis=0)
+                more_related = self.memory_engine.search_memory_by_embedding(combined_embedding.tolist())
+                related_memories.extend(more_related)
+
+            if related_memories:
+                subjects = [memory['metadata'].get('subject', '') for memory in related_memories if 'subject' in memory['metadata']]
+                actions = [memory['metadata'].get('verb', '') for memory in related_memories if 'verb' in memory['metadata']]
+                objects = [memory['metadata'].get('object', '') for memory in related_memories if 'object' in memory['metadata']]
+
+                if subjects and actions:
+                    thought = f"Considering {', '.join(subjects)} and the action of {', '.join(actions)}, I think about {random.choice(actions)}ing {', '.join(objects) if objects else 'something'} in the context of {user_input}."
+                else:
+                    thought = f"Reflecting on '{user_input}', I ponder its implications."
             else:
-                doc = nlp(user_input)
+                thought = f"No context found, pondering '{user_input}' in isolation."
 
-            # Analyze the input for key components
-            subjects = [token.text for token in doc if token.dep_ == 'nsubj']
-            objects = [token.text for token in doc if token.dep_ == 'dobj']
-            verbs = [token.text for token in doc if token.pos_ == 'VERB']
-
-            # Generate a thought based on the analysis
-            if subjects and verbs:
-                thought = f"Considering {', '.join(subjects)} and the action of {', '.join(verbs)}, I think about {random.choice(verbs)}ing {', '.join(objects) if objects else 'something'} in the context of {user_input}."
-            else:
-                thought = f"Reflecting on '{user_input}', I ponder its implications."
-
-            # Log and store the evolved thought
             logger.info(f"[EVOLVED THOUGHT] {thought}")
-            self.memory_engine.store_memory(thought, ["evolved_thought"], {"input": user_input, "context": context})
-
+            self.memory_engine.create_memory_node(thought, {"input": user_input, "context": context if context else []}, ["evolved_thought"])
             return thought
         except Exception as e:
             logger.error(f"[EVOLVE THOUGHT PROCESS ERROR] {e}", exc_info=True)
@@ -189,21 +214,19 @@ class ThoughtEngine:
         :return: A reflective statement on the conversation.
         """
         try:
-            # Combine all conversation turns
-            full_conversation = " ".join(conversation_history)
-            doc = nlp(full_conversation)
+            conversation_embedding = self.model.encode(conversation_history)
+            mean_embedding = np.mean(conversation_embedding, axis=0)
+            related_memories = self.memory_engine.search_memory_by_embedding(mean_embedding.tolist())
 
-            # Analyze for sentiment, key topics, and entities
-            sentiment = doc.sentiment
-            key_topics = [chunk.text for chunk in doc.noun_chunks if len(chunk.text.split()) > 1]
-            entities = [(ent.text, ent.label_) for ent in doc.ents]
+            sentiment = np.mean([self.memory_engine.analyze_emotion(text)['sentiment'] for text in conversation_history])
+            key_topics = [memory['metadata'].get('theme', '') for memory in related_memories if 'theme' in memory['metadata']]
+            entities = [memory['metadata'].get('entities', []) for memory in related_memories if 'entities' in memory['metadata']]
+            entities = [item for sublist in entities for item in sublist]  # Flatten the list
 
-            # Generate a reflection
-            reflection = f"After reviewing our conversation, I sense a {('positive' if sentiment >= 0 else 'negative')} tone. We discussed topics like {', '.join(key_topics[:3]) if key_topics else 'various subjects'}. Key entities included {', '.join([f'{ent[0]} ({ent[1]})' for ent in entities[:3]]) if entities else 'none in particular'}. This dialogue has enriched my understanding."
+            reflection = f"After reviewing our conversation, I sense a {('positive' if sentiment >= 0 else 'negative')} tone. We discussed topics like {', '.join(set(key_topics)) if key_topics else 'various subjects'}. Key entities included {', '.join(set(entities)) if entities else 'none in particular'}. This dialogue has enriched my understanding."
 
             logger.info(f"[CONVERSATION REFLECTION] {reflection}")
-            self.memory_engine.store_memory(reflection, ["conversation_reflection"], {"history": conversation_history})
-
+            self.memory_engine.create_memory_node(reflection, {"history": conversation_history}, ["conversation_reflection"])
             return reflection
         except Exception as e:
             logger.error(f"[CONVERSATION REFLECTION ERROR] {e}", exc_info=True)
@@ -214,30 +237,27 @@ class ThoughtEngine:
         Process content and generate biblical context-aware thoughts.
         """
         try:
-            # Parse content
-            doc = self.nlp(content)
-            
-            # Extract key components
-            subjects = [token.text for token in doc if token.dep_ == 'nsubj']
-            actions = [token.text for token in doc if token.pos_ == 'VERB']
-            objects = [token.text for token in doc if token.dep_ == 'dobj']
-            entities = [ent.text for ent in doc.ents]
+            content_embedding = self.model.encode([content])[0]
+            related_memories = self.memory_engine.search_memory_by_embedding(content_embedding.tolist())
 
-            # Generate thought
-            if subjects and actions:
-                thought = self._generate_thought(subjects, actions, objects, entities, content)
-            else:
-                thought = f"Contemplating the wisdom in '{content}' through spiritual understanding."
+            subjects = [memory['metadata'].get('subject', '') for memory in related_memories if 'subject' in memory['metadata']]
+            actions = [memory['metadata'].get('verb', '') for memory in related_memories if 'verb' in memory['metadata']]
+            objects = [memory['metadata'].get('object', '') for memory in related_memories if 'object' in memory['metadata']]
+            entities = [memory['metadata'].get('entities', []) for memory in related_memories if 'entities' in memory['metadata']]
+            entities = [item for sublist in entities for item in sublist]  # Flatten the list
+
+            thought = self._generate_thought(subjects, actions, objects, entities, content)
 
             # Store in memory with biblical context
-            self.memory_engine.store_memory(
+            self.memory_engine.create_memory_node(
                 thought,
-                ["generated_thought", "biblical_context"],
                 {
                     "original_content": content,
                     "entities": entities,
-                    "timestamp": time.time()
-                }
+                    "timestamp": time.time(),
+                    "type": "biblical_thought"
+                },
+                ["generated_thought", "biblical_context"]
             )
 
             logger.info(f"[THOUGHT PROCESS] Generated thought: {thought}")

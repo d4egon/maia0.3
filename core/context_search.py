@@ -1,5 +1,3 @@
-# Filename: /core/context_search.py
-
 import logging
 import torch
 from sentence_transformers import SentenceTransformer, util
@@ -11,14 +9,14 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class ContextSearchEngine:
-    def __init__(self, neo4j_connector):
+    def __init__(self, memory_engine):
         """
-        Initialize ContextSearchEngine with Neo4j connector and sentence embedding model.
+        Initialize ContextSearchEngine with MemoryEngine for database operations and sentence embedding model.
 
-        :param neo4j_connector: An instance of Neo4jConnector for database operations.
+        :param memory_engine: An instance of MemoryEngine for memory operations.
         """
-        self.db = neo4j_connector
-        self.embedding_model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')  # Updated model
+        self.memory_engine = memory_engine
+        self.embedding_model = memory_engine.model  # Use the model from MemoryEngine for consistency
 
     def search_related_contexts(self, text: str, similarity_threshold: float = 0.7, top_n: int = 20) -> List[Dict]:
         """
@@ -30,30 +28,23 @@ class ContextSearchEngine:
         :return: List of dictionaries with related memories and their similarity scores.
         """
         try:
-            # First, get potentially related contexts via full-text search
-            query = """
-            CALL db.index.fulltext.queryNodes('memoryIndex', $text)
-            YIELD node, score
-            RETURN node.text AS Memory, node.weight AS Weight, score
-            ORDER BY score DESC LIMIT 100  # Fetch more to filter with embeddings
-            """
-            results = self.db.run_query(query, {"text": text.lower()})
+            # First, use MemoryEngine's text-based search for initial filtering
+            initial_results = self.memory_engine.search_memories([text.lower()])
 
-            if not results:
+            if not initial_results:
                 logger.info(f"[CONTEXT SEARCH] No memories found for '{text}'")
                 return []
 
             input_embedding = self.embedding_model.encode(text.lower(), convert_to_tensor=True)
             filtered_results = []
-            for record in results:
-                memory_text = record["Memory"]
-                memory_embedding = self.embedding_model.encode(memory_text.lower(), convert_to_tensor=True)
+            for record in initial_results:
+                memory_text = record["text"]
+                memory_embedding = torch.tensor(record["embedding"])  # Assuming embeddings are stored in memory
                 similarity_score = util.cos_sim(input_embedding, memory_embedding).item()
 
                 if similarity_score >= similarity_threshold:
                     filtered_results.append({
                         "memory": memory_text,
-                        "weight": record["Weight"],
                         "similarity": round(similarity_score, 4)
                     })
 
@@ -75,7 +66,7 @@ class ContextSearchEngine:
 
     def create_dynamic_links(self, source_text: str, related_memories: List[Dict], link_type: str = "RELATED_TO"):
         """
-        Create dynamic relationships in the graph database based on contextual matching.
+        Create dynamic relationships in the memory system based on contextual matching.
 
         :param source_text: The source memory text.
         :param related_memories: List of dictionaries containing related memory texts.
@@ -83,16 +74,7 @@ class ContextSearchEngine:
         """
         try:
             for memory in related_memories:
-                query = f"""
-                MATCH (s:Memory {{text: $source_text}})
-                MERGE (r:Memory {{text: $related_text}})
-                MERGE (s)-[:{link_type} {{similarity: $similarity}}]->(r)
-                """
-                self.db.run_query(query, {
-                    "source_text": source_text.lower(),
-                    "related_text": memory["memory"].lower(),
-                    "similarity": memory["similarity"]
-                })
+                self.memory_engine.create_relationship(source_text, memory["memory"], link_type)
                 logger.info(f"[LINK CREATED] '{source_text}' ↔ '{memory['memory']}' with similarity {memory['similarity']}")
         except Exception as e:
             logger.error(f"[LINK CREATION FAILED] {e}", exc_info=True)
@@ -101,25 +83,21 @@ class ContextSearchEngine:
         """
         Match contexts using semantic embeddings and deeper similarity thresholds.
 
-        :param input_text: Text to match against the graph.
+        :param input_text: Text to match against the memory.
         :param similarity_threshold: Minimum similarity score for matching.
         :return: List of matching contexts.
         """
         try:
             input_embedding = self.embedding_model.encode(input_text, convert_to_tensor=True)
-            query = """
-            MATCH (m:Memory)
-            RETURN m.text AS text
-            """
-            matches = self.db.run_query(query)
+            memories = self.memory_engine.retrieve_all_memories()
             
             scored_matches = []
-            for match in matches:
-                match_embedding = self.embedding_model.encode(match["text"], convert_to_tensor=True)
+            for memory in memories:
+                match_embedding = torch.tensor(memory['embedding'])
                 score = util.cos_sim(input_embedding, match_embedding).item()
                 if score > similarity_threshold:
                     scored_matches.append({
-                        "text": match["text"],
+                        "text": memory["text"],
                         "score": round(score, 4)
                     })
 
@@ -140,27 +118,18 @@ class ContextSearchEngine:
         :return: List of contexts related to the theme.
         """
         try:
-            # Assuming themes are stored in a property of Memory nodes
-            query = f"""
-            MATCH (m:Memory)-[:THEME_OF]->(t:Theme {{name: '{theme.lower()}'}})
-            RETURN m.text AS text
-            """
-            memories = self.db.run_query(query)
-
-            if not memories:
-                logger.info(f"[THEMATIC SEARCH] No memories found for theme '{theme}'")
-                return []
-
+            # Assuming themes are stored in memory metadata
             theme_embedding = self.embedding_model.encode(theme.lower(), convert_to_tensor=True)
             thematic_contexts = []
-            for memory in memories:
-                memory_embedding = self.embedding_model.encode(memory["text"].lower(), convert_to_tensor=True)
-                similarity = util.cos_sim(theme_embedding, memory_embedding).item()
-                if similarity >= similarity_threshold:
-                    thematic_contexts.append({
-                        "text": memory["text"],
-                        "similarity_to_theme": round(similarity, 4)
-                    })
+            for memory in self.memory_engine.retrieve_all_memories():
+                if 'theme' in memory['metadata'] and theme.lower() in memory['metadata']['theme']:
+                    memory_embedding = torch.tensor(memory['embedding'])
+                    similarity = util.cos_sim(theme_embedding, memory_embedding).item()
+                    if similarity >= similarity_threshold:
+                        thematic_contexts.append({
+                            "text": memory["text"],
+                            "similarity_to_theme": round(similarity, 4)
+                        })
 
             logger.info(f"[THEMATIC SEARCH] Found {len(thematic_contexts)} contexts for theme '{theme}'.")
             return thematic_contexts
@@ -178,43 +147,29 @@ class ContextSearchEngine:
         :return: Dictionary summarizing context evolution.
         """
         try:
-            dates_query = f"""
-            MATCH (m:Memory)
-            WHERE m.created_at >= datetime($start_date) AND m.created_at <= datetime($end_date)
-            """
-            theme_query = f" MATCH (m)-[:THEME_OF]->(t:Theme {{name: '{theme.lower()}'}})" if theme else ""
-            query = f"""
-            {dates_query}
-            {theme_query}
-            RETURN m.text AS text, m.created_at AS date, m.theme AS theme
-            ORDER BY m.created_at
-            """
-
-            results = self.db.run_query(query, {"start_date": start_date, "end_date": end_date})
-
-            if not results:
+            memories = self.memory_engine.retrieve_memories_by_time_range(start_date, end_date)
+            
+            if not memories:
                 logger.info(f"[CONTEXT EVOLUTION] No contexts found for the given date range and theme.")
                 return {"error": "No data found for the specified criteria."}
 
-            # Analyze evolution
             evolution = {
-                "total_contexts": len(results),
+                "total_contexts": len(memories),
                 "themes": {},
                 "dates": {}
             }
 
-            for result in results:
-                date_str = result['date'].strftime('%Y-%m-%d')
-                if result['theme']:
-                    for theme in result['theme'].split(','):
-                        theme = theme.strip().lower()
-                        if theme not in evolution['themes']:
-                            evolution['themes'][theme] = 0
-                        evolution['themes'][theme] += 1
+            for memory in memories:
+                date_str = memory['metadata']['created_at'].split('T')[0]
+                if theme and 'theme' in memory['metadata'] and theme.lower() not in memory['metadata']['theme']:
+                    continue
 
-                if date_str not in evolution['dates']:
-                    evolution['dates'][date_str] = 0
-                evolution['dates'][date_str] += 1
+                if 'theme' in memory['metadata']:
+                    for t in memory['metadata']['theme'].split(','):
+                        t = t.strip().lower()
+                        evolution['themes'][t] = evolution['themes'].get(t, 0) + 1
+
+                evolution['dates'][date_str] = evolution['dates'].get(date_str, 0) + 1
 
             logger.info(f"[CONTEXT EVOLUTION] Analyzed {evolution['total_contexts']} contexts.")
             return evolution
@@ -233,31 +188,24 @@ class ContextSearchEngine:
         try:
             text_embedding = self.embedding_model.encode(text, convert_to_tensor=True)
             
-            # Combine text and image embeddings if image_embedding is provided
             if image_embedding is not None:
-                if isinstance(image_embedding, list):
+                if not isinstance(image_embedding, np.ndarray):
                     image_embedding = np.array(image_embedding)
                 combined_embedding = np.concatenate([text_embedding.cpu().numpy(), image_embedding])
 
-                query = """
-                MATCH (m:Memory)
-                RETURN m.text AS text, m.image_embedding AS image_embedding
-                """
-                matches = self.db.run_query(query)
-
                 scored_matches = []
-                for match in matches:
-                    # Assuming image_embedding in Neo4j is stored as a list for compatibility with numpy array
-                    memory_embedding = np.concatenate([
-                        self.embedding_model.encode(match["text"], convert_to_tensor=True).cpu().numpy(),
-                        np.array(match["image_embedding"]) if match["image_embedding"] else np.zeros_like(image_embedding)
-                    ])
-                    score = util.cos_sim(torch.tensor([combined_embedding]), torch.tensor([memory_embedding])).item()
-                    if score > 0.7:  # Adjust threshold as needed
-                        scored_matches.append({
-                            "text": match["text"],
-                            "score": round(score, 4)
-                        })
+                for memory in self.memory_engine.retrieve_all_memories():
+                    if 'image_embedding' in memory['metadata']:
+                        memory_embedding = np.concatenate([
+                            memory['embedding'],  # Assuming this is the text embedding
+                            memory['metadata']['image_embedding']
+                        ])
+                        score = util.cos_sim(torch.tensor([combined_embedding]), torch.tensor([memory_embedding])).item()
+                        if score > 0.7:  # Adjust threshold as needed
+                            scored_matches.append({
+                                "text": memory["text"],
+                                "score": round(score, 4)
+                            })
 
             else:
                 # Fallback to text-only search if no image embedding provided

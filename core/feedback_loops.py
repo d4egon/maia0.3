@@ -1,11 +1,9 @@
-# File: /core/feedback_loops.py
-
 import logging
 from typing import Dict, List, Any
 from core.neo4j_connector import Neo4jConnector
 from core.memory_engine import MemoryEngine
-from NLP.consciousness_engine import ConsciousnessEngine  # Assuming this class exists
-from core.semantic_builder import SemanticBuilder  # For semantic analysis of feedback
+from NLP.consciousness_engine import ConsciousnessEngine
+from core.semantic_builder import SemanticBuilder
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -15,17 +13,17 @@ class FeedbackLoops:
     def __init__(self, graph_client: Neo4jConnector, memory_engine: MemoryEngine):
         self.graph_client = graph_client
         self.memory_engine = memory_engine
-        self.semantic_builder = SemanticBuilder(graph_client)  # For semantic analysis of feedback
-        self.consciousness_engine = ConsciousnessEngine(memory_engine, None)  # Assuming EmotionEngine exists
+        self.semantic_builder = SemanticBuilder(graph_client)
+        self.consciousness_engine = ConsciousnessEngine(memory_engine, None)  # Assuming this setup is correct
 
-    def prompt_user_validation(self, node_id: str, node_name: str, attributes: Dict[str, Any]) -> None:
-        # ... (Existing code or enhancements)
+    def gather_feedback(self, user_feedback: str) -> Dict[str, Any]:
+        """
+        Analyze user feedback for categories and semantic insights.
 
-        def _update_node_attribute(self, node_id: str, attr_name: str, new_value: Any):
-        # ... (Existing code)
-
-            def gather_feedback(self, user_feedback: str) -> Dict[str, Any]:
-                feedback_categories = {
+        :param user_feedback: Feedback from the user.
+        :return: Dictionary with feedback analysis.
+        """
+        feedback_categories = {
             "positive": ["great", "good", "helpful", "useful", "nice"],
             "negative": ["bad", "poor", "useless", "wrong", "incorrect"],
             "suggestion": ["could", "should", "suggest", "recommend", "idea"]
@@ -42,7 +40,7 @@ class FeedbackLoops:
             feedback["categories"].append("neutral")
 
         # Semantic Analysis for deeper insight
-        semantic_analysis = self.semantic_builder.infer_relationships(user_feedback, "previous feedback")
+        semantic_analysis = self.semantic_builder.analyze_semantics(user_feedback)
         feedback["semantic_insights"] = semantic_analysis
 
         logger.info(f"[FEEDBACK GATHERED] {feedback}")
@@ -50,6 +48,11 @@ class FeedbackLoops:
         return feedback
 
     def _store_feedback(self, feedback: Dict[str, Any]):
+        """
+        Store feedback in Neo4j database.
+
+        :param feedback: Feedback data to store.
+        """
         query = """
         CREATE (f:Feedback {text: $text, categories: $categories, semantic_insights: $semantic_insights, timestamp: datetime()})
         """
@@ -61,6 +64,11 @@ class FeedbackLoops:
             raise
 
     def analyze_feedback_trends(self) -> Dict[str, int]:
+        """
+        Analyze feedback trends by category.
+
+        :return: Dictionary of category frequencies.
+        """
         query = """
         MATCH (f:Feedback)
         UNWIND f.categories AS category
@@ -81,26 +89,33 @@ class FeedbackLoops:
             logger.error(f"[TREND ANALYSIS ERROR] {e}", exc_info=True)
             return {}
 
-        def initiate_learning_cycle(self):
-            logger.info("[LEARNING CYCLE] Starting learning cycle based on feedback.")
+    def initiate_learning_cycle(self):
+        """
+        Start a learning cycle based on feedback analysis.
+        """
+        logger.info("[LEARNING CYCLE] Starting learning cycle based on feedback.")
         try:
             # Gather recent feedback for learning
-            recent_feedback = self.get_feedback_by_category("all", limit=10)  # Assuming 'all' returns all feedback
+            recent_feedback = self.get_feedback_by_category("all", limit=10)
 
             for feedback in recent_feedback:
                 # Update memories with feedback
-                self.memory_engine.store_memory(
-                    text=feedback["text"],
-                    emotions=feedback["categories"],  # Assuming categories can represent emotions
-                    extra_properties={"type": "feedback"}
+                self.memory_engine.create_memory_node(
+                    feedback["text"],
+                    {
+                        "type": "feedback",
+                        "categories": feedback["categories"],
+                        "semantic_insights": feedback["semantic_insights"]
+                    },
+                    feedback["categories"]  # Use categories as keywords for searchability
                 )
 
-                # Generate new insights from feedback
+                # Generate new insights from feedback using ConsciousnessEngine
                 introspection = self.consciousness_engine.reflect(feedback["text"])
-                self.memory_engine.store_memory(
-                    text=f"Reflected on feedback: {introspection}",
-                    emotions=["reflective"],
-                    extra_properties={"type": "introspection"}
+                self.memory_engine.create_memory_node(
+                    f"Reflected on feedback: {introspection}",
+                    {"type": "introspection"},
+                    ["reflective"]
                 )
 
             # Update semantic relationships based on feedback
@@ -112,11 +127,11 @@ class FeedbackLoops:
 
     def get_feedback_by_category(self, category: str = "all", limit: int = 10) -> List[Dict]:
         """
-        Retrieve feedback entries from a specific category or all feedback for detailed analysis or reporting.
+        Retrieve feedback entries by category or all feedback.
 
-        :param category: The feedback category to filter by or 'all' for all feedback.
+        :param category: Feedback category to filter by or 'all' for all feedback.
         :param limit: Number of feedback entries to retrieve.
-        :return: List of feedback entries matching the criteria.
+        :return: List of feedback entries.
         """
         if category == "all":
             query = f"""
@@ -143,9 +158,9 @@ class FeedbackLoops:
 
     def integrate_feedback_into_memory(self, feedback: str):
         """
-        Integrate feedback into the memory system, potentially adjusting existing knowledge or creating new memory nodes.
+        Integrate feedback into the memory system.
 
-        :param feedback: The feedback text to integrate.
+        :param feedback: Feedback text to integrate.
         """
         try:
             analyzed_feedback = self.gather_feedback(feedback)
@@ -166,7 +181,7 @@ class FeedbackLoops:
 
     def _create_suggestion_memory(self, suggestion: str):
         """
-        Create a new memory node for a suggestion in the graph database.
+        Create a new memory node for a suggestion.
 
         :param suggestion: The suggestion text to store as memory.
         """
@@ -181,16 +196,15 @@ class FeedbackLoops:
 
     def _review_negative_feedback(self, feedback: str):
         """
-        Review existing memories or knowledge in light of negative feedback.
+        Review existing memories in light of negative feedback.
 
-        :param feedback: The feedback text to review against existing memories.
+        :param feedback: Feedback text to review.
         """
-        # Example of how you might review memories
-        related_memories = self.memory_engine.search_memory(feedback)
+        related_memories = self.memory_engine.search_memories(feedback)
         if related_memories:
             for memory in related_memories:
                 # Adjust confidence or relevance of memory based on negative feedback
-                self.memory_engine.update_memory(memory["id"], "confidence", memory.get("confidence", 1.0) * 0.9)
+                self.memory_engine.update_memory_metadata(memory["id"], {"confidence": memory.get("confidence", 1.0) * 0.9})
             logger.info(f"[NEGATIVE FEEDBACK] Reviewed and adjusted related memories for feedback: {feedback}")
         else:
             logger.info(f"[NEGATIVE FEEDBACK] No related memories found for feedback: {feedback}")
@@ -199,14 +213,16 @@ class FeedbackLoops:
         """
         Reinforce positive behaviors or memories based on positive feedback.
 
-        :param feedback: The feedback text to reinforce positive actions or memories.
+        :param feedback: Feedback text to reinforce.
         """
-        related_memories = self.memory_engine.search_memory(feedback)
+        related_memories = self.memory_engine.search_memories(feedback)
         if related_memories:
             for memory in related_memories:
                 # Increase confidence or mark as successful
-                self.memory_engine.update_memory(memory["id"], "confidence", memory.get("confidence", 1.0) * 1.1)
-                self.memory_engine.update_memory(memory["id"], "success", True)
+                self.memory_engine.update_memory_metadata(memory["id"], {
+                    "confidence": min(1.0, memory.get("confidence", 1.0) * 1.1),
+                    "success": True
+                })
             logger.info(f"[POSITIVE FEEDBACK] Reinforced positive behaviors for feedback: {feedback}")
         else:
             logger.info(f"[POSITIVE FEEDBACK] No related memories found for feedback: {feedback}")

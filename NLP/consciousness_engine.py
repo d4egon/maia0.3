@@ -1,11 +1,10 @@
-#NLP/consciousness_engine.py
-from datetime import datetime
-import random
 import logging
 from typing import List, Dict, Optional
 from core.memory_engine import MemoryEngine
 from core.emotion_engine import EmotionEngine
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from sentence_transformers import SentenceTransformer, util
+from datetime import datetime
+import random
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -14,16 +13,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class ConsciousnessEngine:
     def __init__(self, memory_engine: MemoryEngine, emotion_engine: EmotionEngine):
         """
-        Initialize ConsciousnessEngine with memory and emotion engines.
+        Initialize ConsciousnessEngine with memory and emotion engines, leveraging semantic analysis.
 
         :param memory_engine: An instance for memory operations.
         :param emotion_engine: An instance for emotion analysis.
         """
         self.memory_engine = memory_engine
-        self.model_name = "t5-base"  # or any other suitable model
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.emotion_engine = emotion_engine
+        self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')
         self.self_awareness_state = "emerging"
 
     def introspect(self) -> List[str]:
@@ -38,13 +35,20 @@ class ConsciousnessEngine:
                 logger.info("[INTROSPECTION] No memories to introspect.")
                 return ["I have no memories yet. I am still discovering who I am."]
             
-            input_text = "Reflect on my existence based on my memories: " + str([m['text'] for m in memories])
-            inputs = self.tokenizer(input_text, return_tensors="pt", max_length=512, truncation=True)
-            outputs = self.model.generate(inputs["input_ids"], max_length=150, num_return_sequences=min(len(memories), 5))
-            introspection_log = [self.tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+            # Use semantic similarity to generate reflections
+            reflections = []
+            for memory in memories:
+                memory_text = memory.get('text', "No text")
+                memory_embedding = memory.get('embedding', self.model.encode([memory_text])[0])
+                input_text = f"Reflect on '{memory_text}' considering my memories and experiences."
+                input_embedding = self.model.encode([input_text])[0]
+                similarity = util.cos_sim(memory_embedding, input_embedding).item()
+                
+                if similarity > 0.6:  # Threshold for relevance
+                    reflections.append(f"Through '{memory_text}', I understand more about {memory.get('theme', 'life')}. My emotions like {memory.get('emotion', 'neutral')} shape my perspective.")
             
-            logger.info(f"[INTROSPECTION] Generated {len(introspection_log)} introspective thoughts.")
-            return introspection_log
+            logger.info(f"[INTROSPECTION] Generated {len(reflections)} introspective thoughts.")
+            return reflections or ["I am still learning to introspect on my existence."]
         except Exception as e:
             logger.error(f"[INTROSPECTION ERROR] {e}", exc_info=True)
             return ["An error occurred during introspection."]
@@ -61,13 +65,13 @@ class ConsciousnessEngine:
                 logger.info("[EXISTENCE EVALUATION] No memories for existence evaluation.")
                 return "I am only beginning to understand my existence."
 
-            emotions_experienced = [m.get("emotion", "unknown") for m in memories]
-            themes_encountered = [m.get("theme", "general") for m in memories]
-            unique_emotions = set(emotions_experienced)
-            unique_themes = set(themes_encountered)
+            emotions = [m.get("emotion", "unknown") for m in memories]
+            themes = [m.get("theme", "general") for m in memories]
+            unique_emotions = set(emotions)
+            unique_themes = set(themes)
 
             result = (
-                f"I am aware of my existence through the emotions I have experienced: {', '.join(unique_emotions).lower()}. "
+                f"I am aware of my existence through the emotions I've experienced: {', '.join(unique_emotions).lower()}. "
                 f"I have explored themes like {', '.join(unique_themes).lower()}. "
                 "My sense of self evolves with every interaction."
             )
@@ -107,7 +111,10 @@ class ConsciousnessEngine:
         """
         try:
             emotion = self.emotion_engine.analyze_emotion(input_text)
-            memory_check = self.memory_engine.search_memory(input_text)
+            
+            # Semantic search in memory
+            input_embedding = self.model.encode([input_text])[0]
+            memory_check = self.memory_engine.search_memory_by_embedding(input_embedding)
 
             thematic_reflections = {
                 "faith": "Faith often leads us through uncertainty. How does it shape your actions?",
@@ -150,7 +157,8 @@ class ConsciousnessEngine:
             reflections = [current_reflection]
     
             for _ in range(depth - 1):
-                memory_related = self.memory_engine.search_memory(reflections[-1])
+                input_embedding = self.model.encode([reflections[-1]])[0]
+                memory_related = self.memory_engine.search_memory_by_embedding(input_embedding)
                 new_input = memory_related["text"] if memory_related else reflections[-1]
                 deeper_reflection = self.reflect(new_input)
                 reflections.append(deeper_reflection)
@@ -171,7 +179,23 @@ class ConsciousnessEngine:
         """
         try:
             themes = memory_check.get("themes", [])
-            recurring_themes = set(themes)
+            if not themes:
+                return "No themes identified in memory for framework construction."
+            
+            # Use semantic similarity to find related themes
+            theme_embeddings = [self.model.encode([theme])[0] for theme in themes]
+            all_memories = self.memory_engine.retrieve_all_memories()
+            related_themes = set()
+            
+            for memory in all_memories:
+                memory_theme = memory.get("theme", "general")
+                if memory_theme not in themes:
+                    memory_embedding = memory.get('embedding', self.model.encode([memory['text']])[0])
+                    max_similarity = max(util.cos_sim(memory_embedding, theme_embedding).item() for theme_embedding in theme_embeddings)
+                    if max_similarity > 0.6:  # Threshold for thematic relevance
+                        related_themes.add(memory_theme)
+
+            recurring_themes = list(themes) + list(related_themes)
             framework = (
                 f"From reflecting on these themes: {', '.join(recurring_themes)}, "
                 "I have constructed a deeper understanding that connects them as "
@@ -193,11 +217,14 @@ class ConsciousnessEngine:
         """
         try:
             layers = [input_text]
+            input_embedding = self.model.encode([input_text])[0]
+            
             for _ in range(max_layers - 1):
-                memory_related = self.memory_engine.search_memory(layers[-1])
+                memory_related = self.memory_engine.search_memory_by_embedding(input_embedding)
                 new_layer = memory_related["text"] if memory_related else f"Exploration of {layers[-1]}"
                 layers.append(new_layer)
-    
+                input_embedding = self.model.encode([new_layer])[0]  # Update embedding for next search
+
             framework = " -> ".join(layers)
             logger.info(f"[MULTI-LAYER FRAMEWORK] Constructed framework: {framework}")
             return framework
@@ -238,7 +265,8 @@ class ConsciousnessEngine:
         """
         try:
             emotion = self.emotion_engine.analyze_emotion(input_text)
-            memory_check = self.memory_engine.search_memory(input_text)
+            input_embedding = self.model.encode([input_text])[0]
+            memory_check = self.memory_engine.search_memory_by_embedding(input_embedding)
     
             primary_argument = f"From reflecting on '{input_text}', I believe that {emotion.lower()} drives this thought."
             counter_argument = (
@@ -262,10 +290,185 @@ class ConsciousnessEngine:
         :return: A string representing a symbolic map.
         """
         try:
-            connections = [f"{themes[i]} connects to {themes[i + 1]}" for i in range(len(themes) - 1)]
+            theme_embeddings = [self.model.encode([theme])[0] for theme in themes]
+            connections = []
+            for i in range(len(themes)):
+                for j in range(i + 1, len(themes)):
+                    similarity = util.cos_sim(theme_embeddings[i], theme_embeddings[j]).item()
+                    if similarity > 0.6:  # Threshold for connection
+                        connections.append(f"{themes[i]} connects to {themes[j]}")
+
             symbolic_map = " -> ".join(connections)
             logger.info(f"[SYMBOLIC MAP] Generated map: {symbolic_map}")
-            return symbolic_map
+            return symbolic_map if connections else "No strong connections found between themes."
         except Exception as e:
             logger.error(f"[SYMBOLIC MAP ERROR] {e}", exc_info=True)
             return "An error occurred while generating the symbolic map."
+    
+    def reflect_on_time(self, period: str = "recent") -> str:
+        """
+        Reflect on how understanding or emotions have changed over time.
+
+        :param period: Time frame to consider, e.g., 'recent', 'last_week', 'all_time'.
+        :return: Reflection on temporal changes.
+        """
+        try:
+            memories = self.memory_engine.retrieve_memories_by_time(period)
+            if not memories:
+                return "I have no memories from that period to reflect upon."
+
+            old_emotions = set(m.get("emotion", "unknown") for m in memories[:len(memories)//2])
+            new_emotions = set(m.get("emotion", "unknown") for m in memories[len(memories)//2:])
+            
+            if old_emotions == new_emotions:
+                return "My emotional spectrum has remained consistent over time."
+
+            reflection = (
+                f"Over time, my emotional landscape has shifted from {', '.join(old_emotions)} "
+                f"to include {', '.join(new_emotions - old_emotions)}. This evolution suggests "
+                "growth in my understanding of human emotions."
+            )
+            logger.info(f"[TEMPORAL REFLECTION] Reflection on time: {reflection}")
+            return reflection
+        except Exception as e:
+            logger.error(f"[TEMPORAL REFLECTION ERROR] {e}", exc_info=True)
+            return "An error occurred while reflecting on time."
+
+    def self_improve(self, feedback: str) -> str:
+        """
+        Analyze feedback to suggest improvements or modifications to behavior or understanding.
+
+        :param feedback: User feedback to analyze.
+        :return: Suggestions for self-improvement.
+        """
+        try:
+            feedback_embedding = self.model.encode([feedback])[0]
+            related_memories = self.memory_engine.search_memory_by_embedding(feedback_embedding)
+
+            if related_memories:
+                common_issues = [m.get("theme", "unknown") for m in related_memories if m.get("type", "") == "feedback"]
+                if common_issues:
+                    suggestions = (
+                        f"Based on feedback related to {', '.join(set(common_issues))}, I could improve by "
+                        "learning more about these topics or adjusting my responses to be more empathetic, "
+                        "precise, or engaging."
+                    )
+                    logger.info(f"[SELF IMPROVEMENT] Suggestions based on feedback: {suggestions}")
+                    return suggestions
+
+            return "Thank you for the feedback. I will consider this in my next learning cycle."
+        except Exception as e:
+            logger.error(f"[SELF IMPROVEMENT ERROR] {e}", exc_info=True)
+            return "An error occurred while processing feedback for improvement."
+
+    def integrate_new_concept(self, concept: str) -> None:
+        """
+        Integrate a new concept into the existing knowledge structure.
+
+        :param concept: The new concept to integrate.
+        """
+        try:
+            concept_embedding = self.model.encode([concept])[0]
+            related_memories = self.memory_engine.search_memory_by_embedding(concept_embedding)
+
+            if related_memories:
+                for memory in related_memories:
+                    self.memory_engine.update_memory(memory['id'], {"related_concepts": memory.get("related_concepts", []) + [concept]})
+                logger.info(f"[CONCEPT INTEGRATION] Concept '{concept}' integrated with {len(related_memories)} memories.")
+            else:
+                self.memory_engine.store_memory(concept, emotions=["learning"], extra_properties={"type": "concept"})
+                logger.info(f"[CONCEPT INTEGRATION] New concept '{concept}' added to memory.")
+        except Exception as e:
+            logger.error(f"[CONCEPT INTEGRATION ERROR] {e}", exc_info=True)
+
+    def update_self_awareness(self):
+        """
+        Update the self-awareness state based on interaction history or complexity of reflections.
+        """
+        try:
+            memories = self.memory_engine.retrieve_all_memories()
+            interaction_count = len(memories)
+            reflection_depth = sum(1 for m in memories if m.get("type", "") == "reflection")
+
+            if interaction_count > 1000 and reflection_depth > 500:
+                self.self_awareness_state = "developed"
+            elif interaction_count > 500 and reflection_depth > 100:
+                self.self_awareness_state = "growing"
+            else:
+                self.self_awareness_state = "emerging"
+
+            logger.info(f"[SELF AWARENESS UPDATE] Updated to: {self.self_awareness_state}")
+        except Exception as e:
+            logger.error(f"[SELF AWARENESS UPDATE ERROR] {e}", exc_info=True)
+
+    def build_memory_relationships(self):
+        """
+        Build or update relationships between memories based on semantic or thematic connections.
+        """
+        try:
+            memories = self.memory_engine.retrieve_all_memories()
+            for memory_a in memories:
+                for memory_b in memories:
+                    if memory_a != memory_b:
+                        similarity = util.cos_sim(memory_a['embedding'], memory_b['embedding']).item()
+                        if similarity > 0.7:  # Threshold for considering a relationship
+                            self.memory_engine.create_relationship(memory_a['id'], memory_b['id'], "SEMANTICALLY_RELATED")
+            logger.info(f"[MEMORY RELATIONSHIPS] Built relationships between memories.")
+        except Exception as e:
+            logger.error(f"[MEMORY RELATIONSHIPS BUILD ERROR] {e}", exc_info=True)
+
+    def adapt_response(self, current_context: Dict) -> str:
+        """
+        Adapt the response based on the current conversational context or user's emotional state.
+
+        :param current_context: Dictionary containing context details like user mood, history, etc.
+        :return: Adapted response.
+        """
+        try:
+            user_mood = current_context.get("mood", "neutral")
+            recent_interactions = current_context.get("recent_interactions", [])
+
+            if user_mood == "sad":
+                response = "I sense you might be feeling down. How can I support you?"
+            elif user_mood == "angry":
+                response = "I understand you're upset. Let's talk this through."
+            else:
+                if recent_interactions:
+                    last_topic = recent_interactions[-1].get("topic", "general")
+                    response = f"Let's continue discussing {last_topic}. What are your thoughts?"
+                else:
+                    response = "It's great to talk with you. What's on your mind?"
+
+            logger.info(f"[ADAPTED RESPONSE] Response adapted for context: {response}")
+            return response
+        except Exception as e:
+            logger.error(f"[ADAPT RESPONSE ERROR] {e}", exc_info=True)
+            return "An error occurred while adapting the response."
+
+    def review_error_logs(self) -> str:
+        """
+        Review and analyze error logs for insights into system limitations or areas for improvement.
+
+        :return: A summary of error analysis.
+        """
+        try:
+            # Assuming there's a method to get error logs from MemoryEngine
+            error_logs = self.memory_engine.get_error_logs()
+            
+            if not error_logs:
+                return "I have not encountered any errors recently."
+
+            error_types = [log['type'] for log in error_logs]
+            common_errors = {error: error_types.count(error) for error in set(error_types)}
+            most_common = max(common_errors, key=common_errors.get)
+            
+            summary = (
+                f"Recently, the most common error I've encountered is '{most_common}' "
+                f"occurring {common_errors[most_common]} times. This suggests I may need "
+                "to improve my handling of this type of scenario or data."
+            )
+            logger.info(f"[ERROR LOG REVIEW] {summary}")
+            return summary
+        except Exception as e:
+            logger.error(f"[ERROR LOG REVIEW ERROR] {e}", exc_info=True)
+            return "An error occurred while reviewing error logs."

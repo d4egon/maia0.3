@@ -1,35 +1,38 @@
-# File: /core/interactive_learning.py
-
 import logging
 from typing import List, Dict, Optional
+from core.memory_engine import MemoryEngine
+from NLP.nlp_engine import NLP
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class InteractiveLearning:
-    def __init__(self, graph_client):
+    def __init__(self, memory_engine: MemoryEngine, nlp_engine: NLP):
         """
-        Initialize InteractiveLearning with a graph client for database operations.
+        Initialize InteractiveLearning with MemoryEngine and NLP for operations and analysis.
 
-        :param graph_client: An instance of a class that can run Cypher queries.
+        :param memory_engine: An instance of MemoryEngine for managing database interactions.
+        :param nlp_engine: An instance of NLP for text analysis.
         """
-        self.graph_client = graph_client
+        self.memory_engine = memory_engine
+        self.nlp_engine = nlp_engine
 
-    def identify_knowledge_gaps(self) -> List[Dict]:
+    def identify_knowledge_gaps(self, label: str = "Emotion") -> List[Dict]:
         """
-        Identify nodes (emotions) that lack an example context.
+        Identify nodes that lack an example context or other attributes.
 
+        :param label: The label of the nodes to check (default "Emotion").
         :return: List of dictionaries containing ID and name of nodes with missing example contexts.
         """
-        query = """
-        MATCH (n:Emotion)
+        query = f"""
+        MATCH (n:{label})
         WHERE NOT EXISTS(n.example_context)
         RETURN n.id AS id, n.name AS name
         """
         try:
-            result = self.graph_client.run_query(query)
-            logger.info(f"[KNOWLEDGE GAP] Identified {len(result)} knowledge gaps.")
+            result = self.memory_engine.neo4j.run_query(query)
+            logger.info(f"[KNOWLEDGE GAP] Identified {len(result)} knowledge gaps for {label}.")
             return result
         except Exception as e:
             logger.error(f"[ERROR] Error identifying knowledge gaps: {e}")
@@ -74,16 +77,8 @@ class InteractiveLearning:
         :param node_id: The ID of the node to update.
         :param example_context: The example context to set for the node.
         """
-        query = f"""
-        MATCH (n:Emotion {{id: '{node_id}'}})
-        SET n.example_context = '{example_context.replace("'", "''")}'
-        """
-        try:
-            self.graph_client.run_query(query)
-            logger.info(f"[UPDATE] Updated example context for node ID: {node_id}")
-        except Exception as e:
-            logger.error(f"[ERROR] Failed to update example context for node ID {node_id}: {e}")
-            raise
+        self.memory_engine.update_memory_metadata(node_id, {"example_context": example_context})
+        logger.info(f"[UPDATE] Updated example context for node ID: {node_id}")
 
     def generate_follow_up_questions(self, theme: str) -> List[str]:
         """
@@ -114,25 +109,24 @@ class InteractiveLearning:
         :param feedback: User feedback to apply.
         """
         try:
-            query = f"""
-            MATCH (n) WHERE n.id = '{node_id}'
-            SET n.feedback = COALESCE(n.feedback, '') + ' | ' + '{feedback.replace("'", "''")}'
-            """
-            self.graph_client.run_query(query)
+            current_metadata = self.memory_engine.get_memory_metadata(node_id) or {}
+            current_metadata["feedback"] = current_metadata.get("feedback", "") + " | " + feedback
+            self.memory_engine.update_memory_metadata(node_id, current_metadata)
             logger.info(f"[KNOWLEDGE REFINED] Feedback added to node {node_id}.")
         except Exception as e:
             logger.error(f"[REFINE ERROR] Failed to refine node {node_id}: {e}")
 
     def learn_from_text(self, text: str):
         """
-        Learn from new text input by identifying relevant themes or emotions and updating the graph database.
+        Learn from new text input by identifying relevant themes or emotions and updating the memory system.
 
         :param text: The text from which to learn.
         """
         try:
-            # Here you would implement logic to analyze text, perhaps using NLP techniques
-            # This is a placeholder for actual text analysis
-            detected_themes = ["emotion", "knowledge"]  # Example detection
+            # Use NLP for theme detection
+            _, intent = self.nlp_engine.process(text)
+            detected_themes = ["emotion"] if "emotion" in intent else ["knowledge"]
+
             for theme in detected_themes:
                 questions = self.generate_follow_up_questions(theme)
                 for question in questions:
@@ -144,19 +138,15 @@ class InteractiveLearning:
 
     def _store_new_knowledge(self, text: str, theme: str, response: str):
         """
-        Store newly learned information in the graph database.
+        Store newly learned information in the memory system.
 
         :param text: The original text.
         :param theme: The theme detected in the text.
         :param response: The user's response to the follow-up question.
         """
-        query = f"""
-        CREATE (n:Learning {{text: '{text.replace("'", "''")}', 
-                             theme: '{theme}', 
-                             response: '{response.replace("'", "''")}'}})
-        """
-        try:
-            self.graph_client.run_query(query)
-            logger.info(f"[LEARNING] New knowledge stored for theme: {theme}")
-        except Exception as e:
-            logger.error(f"[STORAGE ERROR] Failed to store new knowledge: {e}")
+        metadata = {
+            "theme": theme, 
+            "response": response
+        }
+        self.memory_engine.create_memory_node(text, metadata, [theme])
+        logger.info(f"[LEARNING] New knowledge stored for theme: {theme}")

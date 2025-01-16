@@ -1,13 +1,13 @@
 import logging
-from typing import Dict, List, Optional, Tuple
-
-from sentence_transformers import InputExample
+from typing import Dict, List, Tuple
+from sentence_transformers import InputExample, SentenceTransformer, util
 from NLP.sentence_parser import SentenceParser
 from NLP.tokenizer import Tokenizer
 from NLP.intent_detector import IntentDetector
 import requests
 from core.file_parser import FileParser
 from core.memory_engine import MemoryEngine
+from core.attribute_enrichment import AttributeEnrichment
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -29,6 +29,8 @@ class NLP:
         self.sentence_parser = SentenceParser()
         self.file_parser = FileParser()
         self.intent_detector = IntentDetector(memory_engine)
+        self.attribute_enrichment = AttributeEnrichment(memory_engine)
+        self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')
 
     def process(self, text: str, user_name: str = "User", context: str = "general conversation") -> Tuple[str, str]:
         """
@@ -43,10 +45,11 @@ class NLP:
             tokens = self.tokenizer.tokenize(text)
             parsed_data = self.sentence_parser.parse(tokens)
 
-            # Extract word tokens for intent detection
+            # Use miniLM-L12 for semantic analysis and intent detection
             word_tokens = [token['value'] for token in tokens if token['type'] == 'word']
-            intent = self.intent_detector.detect_intent(word_tokens)
-            emotions = self.analyze_emotions(tokens)
+            sentence_embedding = self.model.encode([text])[0]
+            intent = self.intent_detector.detect_intent(word_tokens, sentence_embedding)
+            emotions = self.analyze_emotions(text)
 
             # Enrich context data with more detailed information
             context_data = {
@@ -56,9 +59,15 @@ class NLP:
                 "emotions": emotions,
                 "subjects": parsed_data.get("subject", []),
                 "verbs": parsed_data.get("verb", []),
-                "objects": parsed_data.get("object", [])
+                "objects": parsed_data.get("object", []),
+                "embedding": sentence_embedding.tolist()  # Store embedding for later use
             }
+
             response = self.response_generator.generate_response(context_data, user_name, intent, context)
+
+            # Store or update memory with enriched attributes
+            memory_id = self.memory_engine.create_memory_node(text, context_data, [])
+            self.attribute_enrichment.enrich_attributes(memory_id, context_data)
 
             logger.info(f"[NLP PROCESS] Text: '{text}', Intent: {intent}, Emotions: {emotions}, Response: {response}")
             return response, intent
@@ -67,34 +76,33 @@ class NLP:
             logger.error(f"[NLP PROCESS ERROR] {e}", exc_info=True)
             return "I'm sorry, I encountered an error.", "error"
 
-    def analyze_emotions(self, tokens: List[Dict[str, str]]) -> List[str]:
+    def analyze_emotions(self, text: str) -> List[str]:
         """
-        Analyze emotions based on token types and predefined emotional keywords.
+        Analyze emotions based on text using semantic similarity with miniLM-L12.
 
-        :param tokens: Tokenized input.
+        :param text: Text to analyze for emotions.
         :return: A list of detected emotions.
         """
-        emotion_keywords = {
-            "positive": ["happy", "joyful", "grateful", "optimistic"],
-            "negative": ["sad", "angry", "frustrated", "lonely"],
-            "neutral": ["okay", "fine", "indifferent", "neutral"]
+        emotion_templates = {
+            "happy": "I'm feeling joyful, content, or satisfied.",
+            "sad": "I feel down, disappointed, or sorrowful.",
+            "angry": "I am furious, irritated, or frustrated.",
+            "neutral": "I feel okay, normal, or indifferent."
         }
-
-        emotions = []
-        for token in tokens:
-            if token["type"] == "word":
-                token_value = token["value"].lower()
-                for emotion, keywords in emotion_keywords.items():
-                    if token_value in keywords:
-                        emotions.append(emotion)
-                        break
-
-        # If no emotions are detected, default to neutral
-        if not emotions:
-            emotions = ["neutral"]
-
-        logger.info(f"[EMOTION ANALYSIS] Detected emotions: {emotions}")
-        return emotions
+        
+        text_embedding = self.model.encode([text])[0]
+        emotions_detected = []
+        for emotion, template in emotion_templates.items():
+            template_embedding = self.model.encode([template])[0]
+            similarity = util.cos_sim(text_embedding, template_embedding).item()
+            if similarity > 0.7:  # Threshold can be adjusted based on desired sensitivity
+                emotions_detected.append(emotion)
+        
+        if not emotions_detected:
+            emotions_detected = ["neutral"]  # Default to neutral if no emotions detected
+        
+        logger.info(f"[EMOTION ANALYSIS] Detected emotions: {emotions_detected}")
+        return emotions_detected
 
     def update_intent_keywords(self, new_keywords: Dict[str, List[str]]):
         """
@@ -108,12 +116,12 @@ class NLP:
         except Exception as e:
             logger.error(f"[INTENT UPDATE ERROR] Failed to update keywords: {e}", exc_info=True)
 
-    def fetch_internet_data(self, url: str) -> Optional[str]:
+    def fetch_internet_data(self, url: str) -> str:
         """
         Fetch data from the internet.
 
         :param url: URL to fetch data from.
-        :return: Fetched data as string or None if an error occurs.
+        :return: Fetched data as string or error message if failed.
         """
         try:
             response = requests.get(url, timeout=10)
@@ -121,7 +129,7 @@ class NLP:
             return response.text
         except requests.RequestException as e:
             logger.error(f"Error fetching internet data: {e}", exc_info=True)
-            return None
+            return f"Failed to fetch data: {str(e)}"
 
     def process_file(self, file_path: str) -> Tuple[str, str]:
         """
@@ -141,23 +149,20 @@ class NLP:
             logger.error(f"Error processing file: {e}", exc_info=True)
             return "An error occurred while processing the file.", "error"
 
-# Training method added for model fine-tuning
     def train_model(self, train_examples: List[InputExample]):
         """
         Train or fine-tune the model with provided examples.
 
         :param train_examples: List of InputExample objects for training.
         """
-        from sentence_transformers import SentenceTransformer, losses
         from torch.utils.data import DataLoader
+        from sentence_transformers import losses
 
         try:
-            model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')  # Load your chosen model
             train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
-            train_loss = losses.ContrastiveLoss(model=model)
+            train_loss = losses.ContrastiveLoss(model=self.model)
             
-            model.fit(train_objectives=[(train_dataloader, train_loss)], epochs=1, warmup_steps=100)
-            model.save('data/fine_tuned_models')
-            logger.info("Model training completed and saved.")
+            self.model.fit(train_objectives=[(train_dataloader, train_loss)], epochs=1, warmup_steps=100)
+            logger.info("Model training completed.")
         except Exception as e:
             logger.error(f"Error during model training: {e}", exc_info=True)

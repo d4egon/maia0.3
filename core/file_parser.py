@@ -23,19 +23,23 @@ import html
 import shutil
 from datasets import load_dataset
 import torch
+from core.memory_engine import MemoryEngine
 
 # Logger setup
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Constants
-WHISPER_MODEL_ID = "openai/whisper-large-v3-turbo"
+WHISPER_MODEL_ID = "openai/whisper-large-v3-turbo"  # Check for updates on Hugging Face
 
 class FileParser:
-    def __init__(self):
+    def __init__(self, memory_engine: MemoryEngine):
         """
-        Initialize the FileParser class with safe extensions and AI models.
+        Initialize the FileParser class with safe extensions, AI models, and MemoryEngine.
+
+        :param memory_engine: An instance of MemoryEngine for storing parsed content.
         """
+        self.memory_engine = memory_engine
         self.safe_extensions = {
             'txt', 'pdf', 'jpg', 'png', 'jpeg', 'docx', 'csv', 'xml', 'html', 'odt', 
             'json', 'yaml', 'xlsx', 'xls', 'ods', 'mp3', 'wav', 'ogg', 'flac', 'm4a', 'epub'
@@ -344,21 +348,22 @@ class FileParser:
             return json.dumps(content, indent=4)
         except Exception as e:
             raise ValueError(f"JSON parsing failed for {filepath}: {e}")
-        def parse_csv(self, filepath, language=None):
-            """
-            Parse CSV files.
+
+    def parse_csv(self, filepath, language=None):
+        """
+        Parse CSV files.
     
-            :param filepath: Path to the CSV file.
-            :param language: Unused here, kept for consistency.
-            :return: Extracted text.
-            """
-            try:
-                with open(filepath, 'r', encoding='utf-8') as file:
-                    reader = csv.reader(file)
-                    content = '\n'.join([', '.join(row) for row in reader])
-                return content
-            except Exception as e:
-                raise ValueError(f"CSV parsing failed for {filepath}: {e}")
+        :param filepath: Path to the CSV file.
+        :param language: Unused here, kept for consistency.
+        :return: Extracted text.
+        """
+        try:
+            with open(filepath, 'r', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                content = '\n'.join([', '.join(row) for row in reader])
+            return content
+        except Exception as e:
+            raise ValueError(f"CSV parsing failed for {filepath}: {e}")
 
     def parse_xml(self, filepath, language=None):
         """
@@ -420,14 +425,13 @@ class FileParser:
                 for file in files:
                     file_path = os.path.join(root, file)
                     try:
-                        content = self.parse(file_path, language)
+                        content = self.parse(file_path, language=language)
                         results.append((file, content))
                     except Exception as e:
                         logger.warning(f"Failed to parse {file_path}: {e}")
         except Exception as e:
             logger.error(f"Error parsing directory {dirpath}: {e}")
             raise
-
         return results
 
     def parse_generic(self, filepath, language=None):
@@ -440,3 +444,28 @@ class FileParser:
         """
         _, file_extension = os.path.splitext(filepath)
         return f"File type {file_extension} is not supported for content extraction."
+
+    def parse_and_store(self, filepath, mime_type=None, language="eng"):
+        """
+        Parse the file and store its content using MemoryEngine.
+
+        :param filepath: Path to the file.
+        :param mime_type: MIME type of the file.
+        :param language: Language for OCR or transcription.
+        :return: Parsed content.
+        """
+        try:
+            content = self.parse(filepath, mime_type, language)
+            self.memory_engine.create_memory_node(
+                content, 
+                {
+                    "type": "parsed_content", 
+                    "source_file": filepath,
+                    "mime_type": mime_type if mime_type else mimetypes.guess_type(filepath)[0]
+                },
+                [os.path.splitext(os.path.basename(filepath))[0]]  # Use filename without extension as keyword
+            )
+            return content
+        except Exception as e:
+            logger.error(f"Failed to parse and store file {filepath}. Error details: {str(e)}")
+            raise

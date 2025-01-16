@@ -1,20 +1,18 @@
-# Filename: /core/emotion_engine.py
-
-import re
 import logging
 from collections import defaultdict
 from transformers import pipeline
 from typing import Dict, List, Tuple, Union
-import numpy as np  # Added for more complex calculations
+import numpy as np
+from core.memory_engine import MemoryEngine
 
 # Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class EmotionEngine:
-    def __init__(self, db):
+    def __init__(self, memory_engine: MemoryEngine):
         """Initialize EmotionEngine with emotion analysis capabilities."""
-        self.db = db
+        self.memory_engine = memory_engine
         self.emotion_keywords = {
             "happy": {"keywords": ["joy", "excited", "love", "cheerful", "elated"], "weight": 2.0},
             "sad": {"keywords": ["sad", "down", "heartbroken", "depressed"], "weight": 1.8},
@@ -44,7 +42,7 @@ class EmotionEngine:
             for emotion, data in self.emotion_keywords.items():
                 weight = data["weight"]
                 for keyword in data["keywords"]:
-                    if re.search(rf"\b{keyword}\b", text_lower):
+                    if keyword in text_lower:
                         emotion_scores[emotion] += weight
                         logger.debug(f"[KEYWORD MATCH] '{keyword}' → '{emotion}' (Weight: {weight})")
 
@@ -75,6 +73,18 @@ class EmotionEngine:
                         self.emotion_transitions[(last_emotion, detected_emotion)] += 1
                 self.emotion_history.append(detected_emotion)
 
+                # Store emotion analysis in memory
+                self.memory_engine.create_memory_node(
+                    text, 
+                    {
+                        "type": "emotion_analysis",
+                        "emotion": detected_emotion,
+                        "confidence": confidence,
+                        "timestamp": np.datetime64('now').item()
+                    },
+                    []
+                )
+
                 return detected_emotion, confidence
 
             logger.info("[DEFAULT] No matching emotion found. Defaulting to 'neutral'.")
@@ -84,13 +94,25 @@ class EmotionEngine:
             return "neutral", 0.0  # Default to neutral emotion with zero confidence if an error occurs
 
     def contextual_emotion_analysis(self, text: str) -> Tuple[str, float]:
-        """Analyze text for emotional content."""
+        """Analyze text for emotional content with context from memory."""
         try:
             # Get base sentiment
             sentiment = self.emotion_classifier(text)[0]
             emotion = sentiment['label']
             confidence = sentiment['score']
             
+            # Check for context from memory
+            memory = self.memory_engine.search_memory_by_embedding(self.memory_engine.model.encode([text])[0].tolist())
+            if memory:
+                prev_emotion = memory['metadata'].get('emotion', 'neutral')
+                prev_confidence = memory['metadata'].get('confidence', 0.0)
+                
+                # Adjust confidence based on previous emotion if it matches
+                if prev_emotion == emotion:
+                    confidence = min(1.0, confidence + (prev_confidence * 0.1))  # Example adjustment
+                else:
+                    confidence = max(0.0, confidence - (prev_confidence * 0.05))  # Reduce confidence if emotions differ
+
             # Update state
             self.update_emotional_state(emotion, confidence)
             
@@ -119,24 +141,14 @@ class EmotionEngine:
                 
             self.emotion_history.append(emotion)
             
-            # Store in database
-            self._store_emotion_state()
+            # Store in memory
+            self.memory_engine.update_memory_metadata(
+                self.emotion_history[-1],  # Assuming the last emotion is stored as memory
+                {"emotional_state": self.dynamic_emotional_state, "timestamp": np.datetime64('now').item()}
+            )
             
         except Exception as e:
             logger.error(f"[EMOTION UPDATE ERROR] {e}", exc_info=True)
-
-    def _store_emotion_state(self):
-        """Store current emotional state in database."""
-        try:
-            query = """
-            CREATE (e:EmotionalState {
-                state: $state,
-                timestamp: datetime()
-            })
-            """
-            self.db.run_query(query, {"state": self.dynamic_emotional_state})
-        except Exception as e:
-            logger.error(f"[EMOTION STORAGE ERROR] {e}", exc_info=True)
 
     def get_emotional_state(self) -> Dict[str, float]:
         """
