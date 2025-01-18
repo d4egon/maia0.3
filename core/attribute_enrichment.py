@@ -5,6 +5,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer, util
 from keybert import KeyBERT # type: ignore
 from core.memory_engine import MemoryEngine
+from config.utils import get_sentence_transformer_model, get_keyword_extractor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -18,8 +19,8 @@ class AttributeEnrichment:
         :param memory_engine: An instance of MemoryEngine for managing database interactions.
         """
         self.memory_engine = memory_engine
-        self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')
-        self.keyword_extractor = KeyBERT(model=self.model)
+        self.model = get_sentence_transformer_model()
+        self.keyword_extractor = get_keyword_extractor(self.model)
 
     def get_metadata_suggestions(self) -> Dict:
         """

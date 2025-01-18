@@ -5,6 +5,7 @@ from core.memory_engine import MemoryEngine
 from PIL import Image
 import numpy as np
 from transformers import pipeline
+from config.utils import get_visual_emotion_model
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class EmotionFusionEngine:
 
         # Visual emotion analysis model
         try:
-            self.visual_emotion_model = pipeline("image-classification", model="microsoft/resnet-50")
+            self.visual_emotion_model = get_visual_emotion_model()
             logger.info("[INIT] Visual emotion model loaded successfully.")
         except Exception as e:
             logger.error(f"[INIT ERROR] Failed to load visual emotion model: {e}")
@@ -32,7 +33,7 @@ class EmotionFusionEngine:
 
     def fuse_emotions(self, visual_input: str, text_input: str) -> Tuple[str, float]:
         """
-        Fuse emotions from visual analysis, text context, and memory search results.
+        Fuse emotions from visual analysis, content context, and memory search results.
 
         :param visual_input: Path to visual input file.
         :param text_input: Textual input to analyze.
@@ -117,17 +118,17 @@ class EmotionFusionEngine:
 
     def analyze_text_emotion(self, text_input: str) -> Tuple[str, float]:
         """
-        Analyze emotions from text data using the Emotion Engine.
+        Analyze emotions from content data using the Emotion Engine.
 
-        :param text_input: Text to analyze for emotion.
+        :param text_input: Content to analyze for emotion.
         :return: Tuple of (emotion, confidence).
         """
         try:
             text_emotion, confidence = self.emotion_engine.analyze_emotion(text_input)
-            logger.info(f"[TEXT] Detected Emotion: {text_emotion} (Confidence: {confidence})")
+            logger.info(f"[CONTENT] Detected Emotion: {text_emotion} (Confidence: {confidence})")
             return text_emotion, confidence
         except Exception as e:
-            logger.error(f"[TEXT FAILED] {e}")
+            logger.error(f"[CONTENT FAILED] {e}")
             return "neutral", 0.0
 
     def analyze_context_emotion(self, context_data: List[Dict]) -> Tuple[str, float]:
@@ -142,7 +143,7 @@ class EmotionFusionEngine:
                 logger.info("[CONTEXT] No relevant context found.")
                 return "neutral", 0.0
 
-            context_texts = [m["text"] for m in context_data]
+            context_texts = [m["content"] for m in context_data]
             context_emotion, confidence = self.emotion_engine.contextual_emotion_analysis(" ".join(context_texts))
             logger.info(f"[CONTEXT] Detected Emotion: {context_emotion} (Confidence: {confidence})")
             return context_emotion, confidence
@@ -161,8 +162,8 @@ class EmotionFusionEngine:
 
         :param visual_emotion: Emotion from visual analysis.
         :param visual_confidence: Confidence score for visual emotion.
-        :param text_emotion: Emotion from text analysis.
-        :param text_confidence: Confidence score for text emotion.
+        :param text_emotion: Emotion from content analysis.
+        :param text_confidence: Confidence score for content emotion.
         :param context_emotion: Emotion from context analysis.
         :param context_confidence: Confidence score for context emotion.
         :return: A tuple of (final emotion, total confidence).

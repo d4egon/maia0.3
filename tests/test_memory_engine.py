@@ -1,99 +1,164 @@
-from unittest import result
+import os
 import pytest
+from unittest.mock import MagicMock, patch
 from core.memory_engine import MemoryEngine
 from core.neo4j_connector import Neo4jConnector
-from uuid import uuid4
-
-# Mocking Neo4jConnector for testing
-class MockNeo4jConnector:
-    def run_query(self, query, parameters):
-        if "CREATE (memory:Memory" in query:
-            return [{"memory_id": str(uuid4())}]
-        elif "CREATE (chunk:MemoryChunk" in query:
-            return [{"chunk_id": str(uuid4())}]
-        elif "MATCH (memory:Memory)" in query:
-            return [{"content": "Math content", "metadata": {"source": "Math Book"}}]
-        return [{"node_id": str(uuid4())}]  # Default for other queries
 
 @pytest.fixture
-def memory_engine():
-    mock_neo4j = MockNeo4jConnector()
-    return MemoryEngine(mock_neo4j)
+def neo4j_connector():
+    connector = MagicMock(spec=Neo4jConnector)
+    connector.driver = MagicMock()
+    return connector
 
-def test_create_memory_node(memory_engine):
-    node_id = memory_engine.create_memory_node("Math 101", {"author": "John Doe"}, ["math", "education"])
-    assert isinstance(node_id, str)
-    assert len(node_id) > 0  # UUID should be non-empty
+@pytest.fixture
+def memory_engine(neo4j_connector: MagicMock):
+    return MemoryEngine(neo4j_connector)
 
-def test_create_memory_chunk(memory_engine):
-    # Assuming we have a memory node created for this test
-    memory_node_id = str(uuid4())
-    chunk_id = memory_engine.create_memory_chunk(memory_node_id, 1, "text", ["introduction", "basics"])
-    assert isinstance(chunk_id, str)
-    assert len(chunk_id) > 0
-
-def test_create_memory(memory_engine):
-    # Assuming we have a memory chunk created for this test
-    chunk_id = str(uuid4())
-    memory_id = memory_engine.create_memory(chunk_id, 1, "Sample content", {"source": "Book A"})
-    assert isinstance(memory_id, str)
-    assert len(memory_id) > 0
-
-def test_search_memories(memory_engine):
-    # This test assumes some memories with keywords exist
-    results = memory_engine.search_memories(["math"])
-    assert isinstance(results, list)
-    # Check if the result contains expected fields
-    if results:
-        assert all('content' in item and 'metadata' in item for item in results)
-
-def test_link_memories_sequentially(memory_engine):
-    # Create some memory node IDs
-    memory_ids = [str(uuid4()) for _ in range(3)]
+def test_create_memory_node(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    content = "Test content"
+    metadata = {"author": "test"}
+    keywords = ["test", "content"]
+    expected_node_id = "1234"
     
-    # Mocking that all nodes exist in the database
-    memory_engine.neo4j.run_query = lambda query, params: [{"all_nodes_exist": True, "missing_ids": []}]
+    neo4j_connector.run_query.return_value = [{"node_id": expected_node_id}]
+    
+    node_id = memory_engine.create_memory_node(content, metadata, keywords)
+    
+    assert node_id == expected_node_id
+    neo4j_connector.run_query.assert_called_once()
+
+def test_create_memory_chunk(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    memory_node_id = "1234"
+    order = 1
+    chunk_type = "content"
+    keywords = ["test"]
+    expected_chunk_id = "5678"
+    
+    neo4j_connector.run_query.side_effect = [
+        [],  # Memory node does not exist
+        None,  # Create memory node
+        [{"chunk_id": expected_chunk_id}]  # Create memory chunk
+    ]
+    
+    chunk_id = memory_engine.create_memory_chunk(memory_node_id, order, chunk_type, keywords)
+    
+    assert chunk_id == expected_chunk_id
+    neo4j_connector.run_query.assert_called()
+
+def test_create_memory(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    chunk_id = "5678"
+    order = 1
+    content = "Test memory content"
+    metadata = {"type": "test"}
+    expected_memory_id = "91011"
+
+    neo4j_connector.run_query.side_effect = [
+        [],  # Memory chunk does not exist
+        None,  # Create memory chunk
+        [{"memory_id": expected_memory_id}]  # Create memory
+    ]
+
+    memory_id = memory_engine.create_memory(chunk_id, order, content, metadata)
+
+    assert memory_id == expected_memory_id
+    neo4j_connector.run_query.assert_called()
+
+def test_search_memories(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    keywords = ["test"]
+    expected_result = [{"id": "1234", "content": "Test content", "metadata": {"author": "test"}}]
+    
+    neo4j_connector.run_query.return_value = expected_result
+    
+    result = memory_engine.search_memories(keywords)
+    
+    assert result == expected_result
+    neo4j_connector.run_query.assert_called_once()
+
+def test_search_memory_by_embedding(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    embedding = [0.1, 0.2, 0.3]
+    expected_memory = {"id": "1234", "content": "Test content", "metadata": {"author": "test"}, "embedding": [0.1, 0.2, 0.3]}
+
+    neo4j_connector.run_query.return_value = [expected_memory]
+
+    result = memory_engine.search_memory_by_embedding(embedding)
+
+    assert result == expected_memory
+    neo4j_connector.run_query.assert_called_once()
+
+def test_retrieve_all_memories(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    expected_result = [{"id": "1234", "content": "Test content", "metadata": {"author": "test"}, "embedding": [0.1, 0.2, 0.3]}]
+    
+    neo4j_connector.run_query.return_value = expected_result
+    
+    result = memory_engine.retrieve_all_memories()
+    
+    assert result == expected_result
+    neo4j_connector.run_query.assert_called_once()
+
+def test_retrieve_memories_by_time(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    period = "recent"
+    expected_result = [{"id": "1234", "content": "Test content", "metadata": {"author": "test"}, "embedding": [0.1, 0.2, 0.3]}]
+    
+    neo4j_connector.run_query.return_value = expected_result
+    
+    result = memory_engine.retrieve_memories_by_time(period)
+    
+    assert result == expected_result
+    neo4j_connector.run_query.assert_called_once()
+
+def test_retrieve_memories_by_time_range(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    start_date = "2023-01-01"
+    end_date = "2023-12-31"
+    expected_result = [{"id": "1234", "content": "Test content", "metadata": {"author": "test"}, "embedding": [0.1, 0.2, 0.3]}]
+    
+    neo4j_connector.run_query.return_value = expected_result
+    
+    result = memory_engine.retrieve_memories_by_time_range(start_date, end_date)
+    
+    assert result == expected_result
+    neo4j_connector.run_query.assert_called_once()
+
+def test_update_memory(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    memory_id = "1234"
+    updates = {"content": "Updated content"}
+    
+    memory_engine.update_memory(memory_id, updates)
+    
+    neo4j_connector.run_query.assert_called_once()
+
+def test_create_relationship(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    from_id = "1234"
+    to_id = "5678"
+    relationship_type = "RELATED_TO"
+
+    memory_engine.create_relationship(from_id, to_id, relationship_type)
+
+    neo4j_connector.run_query.assert_called_once_with(
+        """
+        MATCH (from:MemoryNode {id: $from_id}), (to:MemoryNode {id: $to_id})
+        MERGE (from)-[r:RELATED_TO]->(to)
+        """,
+        {"from_id": from_id, "to_id": to_id}
+    )
+
+def test_get_error_logs(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    expected_result = [{"id": "1234", "error_message": "Test error", "metadata": {"type": "error"}}]
+    
+    neo4j_connector.run_query.return_value = expected_result
+    
+    result = memory_engine.get_error_logs()
+    
+    assert result == expected_result
+    neo4j_connector.run_query.assert_called_once()
+
+def test_link_memories_sequentially(memory_engine: MemoryEngine, neo4j_connector: MagicMock):
+    memory_ids = ["1234", "5678", "91011"]
+    
+    neo4j_connector.run_query.side_effect = [
+        [{"all_nodes_exist": True, "missing_ids": []}],  # Validate nodes
+        None  # Link nodes
+    ]
     
     memory_engine.link_memories_sequentially(memory_ids)
-    # Here, you might want to check if the NEXT relationships were created, 
-    # but since this is mocked, we'll check if no exception was raised for existing nodes
-
-def test_link_memories_sequentially_missing_nodes(memory_engine):
-    # Test for error when linking non-existent nodes
-    memory_ids = [str(uuid4()), str(uuid4())]  # Assuming one of these doesn't exist
     
-    # Mocking that one node is missing
-    memory_engine.neo4j.run_query = lambda query, params: [{"all_nodes_exist": False, "missing_ids": [memory_ids[1]]}]
-    
-    with pytest.raises(ValueError):
-        memory_engine.link_memories_sequentially(memory_ids)
-
-if __name__ == "__main__":
-    pytest.main([__file__])
-    # Check if the result contains expected fields
-    if result:
-        assert all('content' in item and 'metadata' in item for item in result)
-
-def test_link_memories_sequentially(memory_engine):
-    # Create some memory node IDs
-    memory_ids = [str(uuid4()) for _ in range(3)]
-    
-    # Mocking that all nodes exist in the database
-    memory_engine.neo4j.run_query = lambda query, params: [{"all_nodes_exist": True, "missing_ids": []}]
-    
-    memory_engine.link_memories_sequentially(memory_ids)
-    # Here, you might want to check if the NEXT relationships were created, 
-    # but since this is mocked, we'll check if no exception was raised for existing nodes
-
-def test_link_memories_sequentially_missing_nodes(memory_engine):
-    # Test for error when linking non-existent nodes
-    memory_ids = [str(uuid4()), str(uuid4())]  # Assuming one of these doesn't exist
-    
-    # Mocking that one node is missing
-    memory_engine.neo4j.run_query = lambda query, params: [{"all_nodes_exist": False, "missing_ids": [memory_ids[1]]}]
-    
-    with pytest.raises(ValueError):
-        memory_engine.link_memories_sequentially(memory_ids)
-
-if __name__ == "__main__":
-    pytest.main([__file__])
+    assert neo4j_connector.run_query.call_count == 2

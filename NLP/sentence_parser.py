@@ -18,7 +18,7 @@ class SentenceParser:
 
     def parse(self, tokenized_data: Dict[str, List[Dict[str, str]]]) -> Dict[str, List[str]]:
         """
-        Parse a dictionary containing tokenized text and its embedding to identify grammatical components.
+        Parse a dictionary containing tokenized content and its embedding to identify grammatical components.
 
         :param tokenized_data: Dictionary with 'tokens' and 'embedding' keys, where 'tokens' is a list of token dictionaries.
         :return: A dictionary containing parsed grammatical components.
@@ -46,8 +46,8 @@ class SentenceParser:
             if not isinstance(tokens, list) or not tokens:
                 raise ValueError("Tokens must be a non-empty list of token dictionaries.")
 
-            text = ' '.join([token['value'] for token in tokens])
-            doc = self.model.encode([text])[0].tolist()  # Here we're using our own model to get sentence embedding
+            content = ' '.join([token['value'] for token in tokens])
+            doc = self.model.encode([content])[0].tolist()  # Here we're using our own model to get sentence embedding
             parsed['semantic_embedding'] = doc
 
             # Basic grammatical parsing - this is simplified due to not using spaCy

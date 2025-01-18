@@ -20,21 +20,21 @@ class Tokenizer:
         """
         self.model = model
 
-    def tokenize(self, text: str) -> Dict[str, List[Dict[str, str]]]:
+    def tokenize(self, content: str) -> Dict[str, List[Dict[str, str]]]:
         """
-        Tokenize the input text into words, numbers, punctuation marks, and specific keywords using regex and semantic analysis.
+        Tokenize the input content into words, numbers, punctuation marks, and specific keywords using regex and semantic analysis.
 
-        :param text: The text string to be tokenized.
-        :return: A dictionary containing 'tokens' and 'embedding' for the entire text.
+        :param content: The content string to be tokenized.
+        :return: A dictionary containing 'tokens' and 'embedding' for the entire content.
 
-        :raises ValueError: If the input text is not a string or is empty.
+        :raises ValueError: If the input content is not a string or is empty.
         """
         try:
-            if not isinstance(text, str) or not text.strip():
+            if not isinstance(content, str) or not content.strip():
                 raise ValueError("Input must be a non-empty string.")
 
             # Tokenize using regex for simplicity and speed
-            words = re.findall(r'\b\w+\b|[^\w\s]', text.lower())
+            words = re.findall(r'\b\w+\b|[^\w\s]', content.lower())
             categorized_tokens = []
             for word in words:
                 if word in self.KEYWORDS:
@@ -48,10 +48,10 @@ class Tokenizer:
 
                 categorized_tokens.append({"type": token_type, "value": word})
 
-            # Generate embedding for the entire text
-            embedding = self.model.encode([text])[0].tolist()
+            # Generate embedding for the entire content
+            embedding = self.model.encode([content])[0].tolist()
 
-            logger.info(f"[TOKENIZATION] Text '{text[:50]}{'...' if len(text) > 50 else ''}' tokenized into {len(categorized_tokens)} tokens.")
+            logger.info(f"[TOKENIZATION] Content '{content[:50]}{'...' if len(content) > 50 else ''}' tokenized into {len(categorized_tokens)} tokens.")
             return {"tokens": categorized_tokens, "embedding": embedding}
         except ValueError as ve:
             logger.error(f"[TOKENIZATION ERROR] {ve}")
@@ -64,10 +64,10 @@ class Tokenizer:
         """
         Tokenize a batch of texts, including generating embeddings.
 
-        :param texts: A list of text strings to be tokenized.
-        :return: A list of dictionaries, each containing 'tokens' and 'embedding' for each text.
+        :param texts: A list of content strings to be tokenized.
+        :return: A list of dictionaries, each containing 'tokens' and 'embedding' for each content.
 
-        :raises ValueError: If any text in the batch is not a string or is empty.
+        :raises ValueError: If any content in the batch is not a string or is empty.
         """
         try:
             if not isinstance(texts, list) or not all(isinstance(t, str) for t in texts):
@@ -78,10 +78,10 @@ class Tokenizer:
 
             return [
                 {
-                    "tokens": self.tokenize(text)["tokens"],
+                    "tokens": self.tokenize(content)["tokens"],
                     "embedding": embedding
                 } 
-                for text, embedding in zip(texts, embeddings) if text.strip()
+                for content, embedding in zip(texts, embeddings) if content.strip()
             ]
         except ValueError as ve:
             logger.error(f"[BATCH TOKENIZATION ERROR] {ve}")

@@ -116,15 +116,15 @@ class InteractiveLearning:
         except Exception as e:
             logger.error(f"[REFINE ERROR] Failed to refine node {node_id}: {e}")
 
-    def learn_from_text(self, text: str):
+    def learn_from_text(self, content: str):
         """
         Learn from new text input by identifying relevant themes or emotions and updating the memory system.
 
-        :param text: The text from which to learn.
+        :param content: The text from which to learn.
         """
         try:
             # Use NLP for theme detection
-            _, intent = self.nlp_engine.process(text)
+            _, intent = self.nlp_engine.process(content)
             detected_themes = ["emotion"] if "emotion" in intent else ["knowledge"]
 
             for theme in detected_themes:
@@ -132,15 +132,15 @@ class InteractiveLearning:
                 for question in questions:
                     response = self._get_valid_input(question)
                     if response:
-                        self._store_new_knowledge(text, theme, response)
+                        self._store_new_knowledge(content, theme, response)
         except Exception as e:
-            logger.error(f"[LEARNING ERROR] Error learning from text: {e}")
+            logger.error(f"[LEARNING ERROR] Error learning from content: {e}")
 
-    def _store_new_knowledge(self, text: str, theme: str, response: str):
+    def _store_new_knowledge(self, content: str, theme: str, response: str):
         """
         Store newly learned information in the memory system.
 
-        :param text: The original text.
+        :param content: The original text.
         :param theme: The theme detected in the text.
         :param response: The user's response to the follow-up question.
         """
@@ -148,5 +148,5 @@ class InteractiveLearning:
             "theme": theme, 
             "response": response
         }
-        self.memory_engine.create_memory_node(text, metadata, [theme])
+        self.memory_engine.create_memory_node(content, metadata, [theme])
         logger.info(f"[LEARNING] New knowledge stored for theme: {theme}")

@@ -5,7 +5,7 @@ from typing import List, Dict, Optional
 from core.memory_engine import MemoryEngine
 from core.emotion_engine import EmotionEngine
 from core.thought_engine import ThoughtEngine
-from sentence_transformers import SentenceTransformer, util
+from config.utils import get_sentence_transformer_model
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class ThoughtLoop:
         self.thought_engine = thought_engine
         self.running = False
         self.emotion_engine = EmotionEngine(memory_engine)
-        self.semantic_model = memory_engine.model  # Use the same model for consistency
+        self.semantic_model = get_sentence_transformer_model()
 
     def run(self):
         """
@@ -64,7 +64,7 @@ class ThoughtLoop:
                 # Semantic analysis and reflection
                 related_memories = self.memory_engine.search_memory_by_embedding(self.semantic_model.encode([thought])[0].tolist())
                 if related_memories:
-                    reflection = self.thought_engine.reflect_on_conversation([memory['text'] for memory in related_memories])
+                    reflection = self.thought_engine.reflect_on_conversation([memory['content'] for memory in related_memories])
                     logger.info(f"[THOUGHT LOOP] Reflection: {reflection}")
                     reflection_id = self.memory_engine.create_memory_node(
                         reflection, 

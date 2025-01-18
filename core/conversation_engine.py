@@ -1,4 +1,5 @@
-﻿import logging
+﻿# conversation_engine.py
+import logging
 from typing import Dict, Any, Optional, List
 import time
 from datetime import datetime, timedelta
@@ -13,6 +14,7 @@ from core.collaborative_learning import CollaborativeLearning
 from core.context_search import ContextSearchEngine
 from core.memory_engine import MemoryEngine
 from core.semantic_builder import SemanticBuilder
+from config.utils import get_sentence_transformer_model, get_generation_model_and_tokenizer, get_context_model_and_tokenizer
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -28,15 +30,13 @@ class ConversationEngine:
         self.semantic_builder = SemanticBuilder(memory_engine)
         
         # Initialize NLP components
-        self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')
+        self.model = get_sentence_transformer_model()
         
         # Deep Learning for response generation
-        self.generation_model = T5ForConditionalGeneration.from_pretrained('t5-small')
-        self.generation_tokenizer = T5Tokenizer.from_pretrained('t5-small')
+        self.generation_model, self.generation_tokenizer = get_generation_model_and_tokenizer()
         
         # Deep Learning for context understanding
-        self.context_model = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
-        self.context_tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        self.context_model, self.context_tokenizer = get_context_model_and_tokenizer()
         
         # Save model state
         self._save_initial_model()
@@ -98,7 +98,7 @@ class ConversationEngine:
             memory = self.memory_engine.search_memory_by_embedding(input_embedding)
             
             if memory:
-                response = self._generate_advanced_response(user_input, memory['text'])
+                response = self._generate_advanced_response(user_input, memory['content'])
             else:
                 context = self.get_deep_context(user_input)
                 if context:
@@ -113,7 +113,7 @@ class ConversationEngine:
                         )
                         related = self.memory_engine.search_by_semantic_links(semantic_links)
                         if related:
-                            response = self._generate_advanced_response(user_input, related['text'])
+                            response = self._generate_advanced_response(user_input, related['content'])
                         else:
                             response = self.response_generator.generate_random_response("unknown")
                     else:
@@ -146,19 +146,19 @@ class ConversationEngine:
         Use a BERT model to find the most relevant past conversation for context.
 
         :param user_input: The user's current input.
-        :return: The text of the most relevant past conversation or an empty string if no relevant context found.
+        :return: The content of the most relevant past conversation or an empty string if no relevant context found.
         """
         past_conversations = self.memory_engine.retrieve_recent_memories(timedelta(days=7))  # Example: look back one week
         max_similarity = 0
         best_context = ""
         for past in past_conversations:
-            combined = user_input + " [SEP] " + past['text']
+            combined = user_input + " [SEP] " + past['content']
             inputs = self.context_tokenizer.encode_plus(combined, return_tensors='pt', max_length=512, truncation=True)
             outputs = self.context_model(**inputs)
             similarity = outputs.logits[0][1].item()  # Assuming binary classification for relevance
             if similarity > max_similarity:
                 max_similarity = similarity
-                best_context = past['text']
+                best_context = past['content']
         return best_context if max_similarity > 0.5 else ""
 
     def process_feedback(self, feedback: str) -> Optional[Dict[str, Any]]:
@@ -272,7 +272,7 @@ class ConversationEngine:
             train_examples = []
             for i in range(len(recent_interactions) - 1):
                 similarity = np.random.choice([0.8, 0.5])  # Random similarity for example
-                train_examples.append(InputExample(texts=[recent_interactions[i]['text'], recent_interactions[i+1]['text']], label=similarity))
+                train_examples.append(InputExample(texts=[recent_interactions[i]['content'], recent_interactions[i+1]['content']], label=similarity))
 
             if train_examples:
                 train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
@@ -291,7 +291,7 @@ class ConversationEngine:
 
             feedbacks = self.memory_engine.get_recent_feedback(self.improvement_frequency)
             for feedback in feedbacks:
-                self.process_feedback(feedback['text'])
+                self.process_feedback(feedback['content'])
 
             # Optionally, fine-tune T5 or BERT here with new data if needed
 
@@ -326,3 +326,80 @@ class ConversationEngine:
             logger.info("[MODEL LOAD] BERT model loaded.")
         else:
             logger.warning("[MODEL LOAD] No BERT model checkpoint found.")
+
+    def infer_conversation_flow(self, user_input: str, conversation_history: List[str]) -> Dict[str, Any]:
+        """
+        Infer the flow of a conversation based on user input and history.
+
+        :param user_input: The current user input.
+        :param conversation_history: List of previous conversation turns.
+        :return: A dictionary containing inferred flow details.
+        """
+        try:
+            # Create a context from the conversation history
+            context = " ".join(conversation_history)
+            
+            # Analyze the current input
+            input_analysis = self.analyze(user_input)
+            
+            # Use context search to find related contexts
+            related_contexts = self.context_search.search_related_contexts(user_input)
+            
+            # Infer the flow based on the current input, context, and related contexts
+            flow = {
+                "current_topic": self.semantic_builder.infer_topic(user_input),
+                "transition": self.semantic_builder.detect_transition(user_input, context),
+                "related_themes": [ctx['chunk'] for ctx in related_contexts if 'chunk' in ctx]
+            }
+            
+            # Store the inferred flow as part of the conversation memory
+            conversation_chunk_id = self.memory_engine.get_conversation_chunk_id(conversation_history)
+            self.memory_engine.create_memory(
+                chunk_id=conversation_chunk_id,
+                order=len(conversation_history) + 1,
+                content=user_input,
+                metadata={"type": "conversation_flow", "flow": flow}
+            )
+            
+            logger.info(f"[CONVERSATION FLOW] Inferred flow for input: {user_input[:50]}{'...' if len(user_input) > 50 else ''}")
+            return flow
+        except Exception as e:
+            logger.error(f"[CONVERSATION FLOW ERROR] {str(e)}")
+            return {"error": str(e), "status": "failed"}
+
+    def get_conversation_summary(self, conversation_id: str) -> Dict[str, Any]:
+        """
+        Retrieve and summarize a conversation based on its ID.
+
+        :param conversation_id: The ID of the conversation to summarize.
+        :return: A dictionary containing the summary of the conversation.
+        """
+        try:
+            conversation = self.memory_engine.get_memories_by_chunk_id(conversation_id)
+            if not conversation:
+                return {"error": "Conversation not found", "status": "failed"}
+
+            # Aggregate all conversation content
+            full_conversation = "\n".join([memory['content'] for memory in conversation])
+
+            # Summarize using the generation model
+            input_text = f"summarize: {full_conversation}"
+            input_ids = self.generation_tokenizer.encode(input_text, return_tensors='pt')
+            summary_ids = self.generation_model.generate(input_ids, max_length=150, num_beams=4, no_repeat_ngram_size=2, early_stopping=True)
+            summary = self.generation_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+
+            # Extract key topics or themes
+            topics = self.semantic_builder.infer_topics(full_conversation)
+
+            summary_data = {
+                "summary": summary,
+                "key_topics": topics,
+                "length": len(conversation),
+                "timestamp": conversation[0]['metadata']['timestamp'] if 'timestamp' in conversation[0]['metadata'] else None
+            }
+
+            logger.info(f"[CONVERSATION SUMMARY] Summarized conversation ID: {conversation_id}")
+            return summary_data
+        except Exception as e:
+            logger.error(f"[SUMMARY ERROR] {str(e)}")
+            return {"error": str(e), "status": "failed"}

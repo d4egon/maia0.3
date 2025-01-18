@@ -222,7 +222,7 @@ class EthicsEngine:
             all_scenarios = []
             for scenario in memory_scenarios:
                 all_scenarios.append({
-                    "scenario": scenario["text"],
+                    "scenario": scenario["content"],
                     "choices": scenario["metadata"].get("choices", {}),
                     "lesson": scenario["metadata"].get("lesson", "No lesson provided")
                 })

@@ -1,7 +1,6 @@
 import logging
 from typing import Optional
 from NLP.nlp_engine import NLP
-from core.conversation_engine import ConversationEngine  # Assuming this class exists
 from core.memory_engine import MemoryEngine
 
 # Configure logging
@@ -9,7 +8,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class CollaborativeLearning:
-    def __init__(self, conversation_engine: ConversationEngine, nlp_engine: NLP, memory_engine: MemoryEngine):
+    def __init__(self, conversation_engine, nlp_engine: NLP, memory_engine: MemoryEngine):
         """
         Initialize CollaborativeLearning with references to ConversationEngine, NLP, and MemoryEngine.
 
@@ -17,6 +16,7 @@ class CollaborativeLearning:
         :param nlp_engine: An instance of NLP for language processing tasks.
         :param memory_engine: An instance of MemoryEngine for memory operations.
         """
+        # We don't import ConversationEngine here, we just accept it as a parameter
         self.conversation_engine = conversation_engine
         self.nlp_engine = nlp_engine
         self.memory_engine = memory_engine

@@ -2,10 +2,9 @@ import logging
 import random
 import time
 from typing import List, Dict, Optional
-
+from config.utils import get_sentence_transformer_model
 import requests
 from core.memory_engine import MemoryEngine
-from sentence_transformers import SentenceTransformer, util
 import numpy as np
 
 # Configure logging
@@ -20,7 +19,7 @@ class ThoughtEngine:
         :param memory_engine: An instance of MemoryEngine for managing database interactions.
         """
         self.memory_engine = memory_engine
-        self.model = memory_engine.model  # Use the same embedding model as MemoryEngine for consistency
+        self.model = get_sentence_transformer_model()
 
     def reflect(self, input_text: str) -> str:
         """
@@ -33,7 +32,7 @@ class ThoughtEngine:
             input_embedding = self.model.encode([input_text])[0]
             memory = self.memory_engine.search_memory_by_embedding(input_embedding)
             if memory:
-                message = f"Found memory of '{memory['text']}' with emotion '{memory['metadata'].get('emotion', 'neutral')}'."
+                message = f"Found memory of '{memory['content']}' with emotion '{memory['metadata'].get('emotion', 'neutral')}'."
                 logger.info(f"[REFLECT] {message}")
                 return message
             else:
@@ -64,7 +63,7 @@ class ThoughtEngine:
             # Find related memories to inspire the thought
             related_memories = self.memory_engine.search_memory_by_embedding(theme_embedding.tolist(), top_n=3)
             if related_memories:
-                insights = [mem['text'] for mem in related_memories]
+                insights = [mem['content'] for mem in related_memories]
                 emergent_thought = f"By combining {combined_themes}, we arrive at a new perspective: {' '.join(insights)}."
             else:
                 emergent_thought = f"Combining {combined_themes} leads to a fresh understanding, though no direct parallels were found in memory."
@@ -84,9 +83,9 @@ class ThoughtEngine:
         try:
             themes = self.memory_engine.search_memories(["theme"])
             if not themes:
-                themes = [{"text": theme} for theme in ["hope", "reflection", "change", "connection"]]  # Fallback themes
+                themes = [{"content": theme} for theme in ["hope", "reflection", "change", "connection"]]  # Fallback themes
             
-            selected_theme = random.choice(themes)['text']
+            selected_theme = random.choice(themes)['content']
             thought = f"Thinking about {selected_theme}..."
             
             # Store this thought in memory as a learning process
@@ -157,7 +156,7 @@ class ThoughtEngine:
             
             if related_patterns:
                 for pattern in related_patterns:
-                    logger.debug(f"Found related pattern: {pattern['text']}")
+                    logger.debug(f"Found related pattern: {pattern['content']}")
             else:
                 logger.debug("No related patterns found, creating new pattern memory.")
             
@@ -182,7 +181,7 @@ class ThoughtEngine:
             related_memories = self.memory_engine.search_memory_by_embedding(user_embedding.tolist())
             
             if context:
-                context_embeddings = [self.model.encode([c['text']])[0] for c in context]
+                context_embeddings = [self.model.encode([c['content']])[0] for c in context]
                 combined_embedding = np.mean(context_embeddings, axis=0)
                 more_related = self.memory_engine.search_memory_by_embedding(combined_embedding.tolist())
                 related_memories.extend(more_related)
@@ -218,7 +217,7 @@ class ThoughtEngine:
             mean_embedding = np.mean(conversation_embedding, axis=0)
             related_memories = self.memory_engine.search_memory_by_embedding(mean_embedding.tolist())
 
-            sentiment = np.mean([self.memory_engine.analyze_emotion(text)['sentiment'] for text in conversation_history])
+            sentiment = np.mean([self.memory_engine.analyze_emotion(content)['sentiment'] for content in conversation_history])
             key_topics = [memory['metadata'].get('theme', '') for memory in related_memories if 'theme' in memory['metadata']]
             entities = [memory['metadata'].get('entities', []) for memory in related_memories if 'entities' in memory['metadata']]
             entities = [item for sublist in entities for item in sublist]  # Flatten the list

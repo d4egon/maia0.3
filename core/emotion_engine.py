@@ -27,14 +27,14 @@ class EmotionEngine:
         self.emotion_history = []
         self.emotion_classifier = pipeline("sentiment-analysis")
 
-    def analyze_emotion(self, text: str) -> Tuple[str, float]:
+    def analyze_emotion(self, content: str) -> Tuple[str, float]:
         """
         Analyzes the emotion of a given text using keyword matching, sentiment analysis, and an emotion classifier.
 
-        :param text: The text to analyze.
+        :param content: The text to analyze.
         :return: A tuple of (emotion, confidence).
         """
-        text_lower = text.lower()
+        text_lower = content.lower()
         emotion_scores = defaultdict(float)
 
         try:
@@ -47,7 +47,7 @@ class EmotionEngine:
                         logger.debug(f"[KEYWORD MATCH] '{keyword}' → '{emotion}' (Weight: {weight})")
 
             # Emotion Classification
-            classified_emotions = self.emotion_classifier(text)
+            classified_emotions = self.emotion_classifier(content)
             for result in classified_emotions:
                 emotion = result['label'].lower()
                 if emotion in self.emotion_keywords:
@@ -55,7 +55,7 @@ class EmotionEngine:
 
             # Handle case where no keywords or classifier matches
             if not emotion_scores:
-                sentiment_result = self.emotion_classifier(text)[0]  # Use the most likely emotion from classifier
+                sentiment_result = self.emotion_classifier(content)[0]  # Use the most likely emotion from classifier
                 emotion_scores[sentiment_result['label'].lower()] = sentiment_result['score']
 
             if emotion_scores:
@@ -75,7 +75,7 @@ class EmotionEngine:
 
                 # Store emotion analysis in memory
                 self.memory_engine.create_memory_node(
-                    text, 
+                    content, 
                     {
                         "type": "emotion_analysis",
                         "emotion": detected_emotion,
@@ -93,16 +93,16 @@ class EmotionEngine:
             logger.error(f"[EMOTION ANALYSIS ERROR] {e}", exc_info=True)
             return "neutral", 0.0  # Default to neutral emotion with zero confidence if an error occurs
 
-    def contextual_emotion_analysis(self, text: str) -> Tuple[str, float]:
+    def contextual_emotion_analysis(self, content: str) -> Tuple[str, float]:
         """Analyze text for emotional content with context from memory."""
         try:
             # Get base sentiment
-            sentiment = self.emotion_classifier(text)[0]
+            sentiment = self.emotion_classifier(content)[0]
             emotion = sentiment['label']
             confidence = sentiment['score']
             
             # Check for context from memory
-            memory = self.memory_engine.search_memory_by_embedding(self.memory_engine.model.encode([text])[0].tolist())
+            memory = self.memory_engine.search_memory_by_embedding(self.memory_engine.model.encode([content])[0].tolist())
             if memory:
                 prev_emotion = memory['metadata'].get('emotion', 'neutral')
                 prev_confidence = memory['metadata'].get('confidence', 0.0)

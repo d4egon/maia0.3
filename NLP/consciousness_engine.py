@@ -38,7 +38,7 @@ class ConsciousnessEngine:
             # Use semantic similarity to generate reflections
             reflections = []
             for memory in memories:
-                memory_text = memory.get('text', "No text")
+                memory_text = memory.get('content', "No text")
                 memory_embedding = memory.get('embedding', self.model.encode([memory_text])[0])
                 input_text = f"Reflect on '{memory_text}' considering my memories and experiences."
                 input_embedding = self.model.encode([input_text])[0]
@@ -159,7 +159,7 @@ class ConsciousnessEngine:
             for _ in range(depth - 1):
                 input_embedding = self.model.encode([reflections[-1]])[0]
                 memory_related = self.memory_engine.search_memory_by_embedding(input_embedding)
-                new_input = memory_related["text"] if memory_related else reflections[-1]
+                new_input = memory_related["content"] if memory_related else reflections[-1]
                 deeper_reflection = self.reflect(new_input)
                 reflections.append(deeper_reflection)
     
@@ -190,7 +190,7 @@ class ConsciousnessEngine:
             for memory in all_memories:
                 memory_theme = memory.get("theme", "general")
                 if memory_theme not in themes:
-                    memory_embedding = memory.get('embedding', self.model.encode([memory['text']])[0])
+                    memory_embedding = memory.get('embedding', self.model.encode([memory['content']])[0])
                     max_similarity = max(util.cos_sim(memory_embedding, theme_embedding).item() for theme_embedding in theme_embeddings)
                     if max_similarity > 0.6:  # Threshold for thematic relevance
                         related_themes.add(memory_theme)
@@ -221,7 +221,7 @@ class ConsciousnessEngine:
             
             for _ in range(max_layers - 1):
                 memory_related = self.memory_engine.search_memory_by_embedding(input_embedding)
-                new_layer = memory_related["text"] if memory_related else f"Exploration of {layers[-1]}"
+                new_layer = memory_related["content"] if memory_related else f"Exploration of {layers[-1]}"
                 layers.append(new_layer)
                 input_embedding = self.model.encode([new_layer])[0]  # Update embedding for next search
 

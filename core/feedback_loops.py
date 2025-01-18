@@ -29,7 +29,7 @@ class FeedbackLoops:
             "suggestion": ["could", "should", "suggest", "recommend", "idea"]
         }
 
-        feedback = {"text": user_feedback, "categories": []}
+        feedback = {"content": user_feedback, "categories": []}
         lower_feedback = user_feedback.lower()
 
         for category, keywords in feedback_categories.items():
@@ -54,7 +54,7 @@ class FeedbackLoops:
         :param feedback: Feedback data to store.
         """
         query = """
-        CREATE (f:Feedback {text: $text, categories: $categories, semantic_insights: $semantic_insights, timestamp: datetime()})
+        CREATE (f:Feedback {content: $content, categories: $categories, semantic_insights: $semantic_insights, timestamp: datetime()})
         """
         try:
             self.graph_client.run_query(query, feedback)
@@ -101,7 +101,7 @@ class FeedbackLoops:
             for feedback in recent_feedback:
                 # Update memories with feedback
                 self.memory_engine.create_memory_node(
-                    feedback["text"],
+                    feedback["content"],
                     {
                         "type": "feedback",
                         "categories": feedback["categories"],
@@ -111,7 +111,7 @@ class FeedbackLoops:
                 )
 
                 # Generate new insights from feedback using ConsciousnessEngine
-                introspection = self.consciousness_engine.reflect(feedback["text"])
+                introspection = self.consciousness_engine.reflect(feedback["content"])
                 self.memory_engine.create_memory_node(
                     f"Reflected on feedback: {introspection}",
                     {"type": "introspection"},
@@ -136,7 +136,7 @@ class FeedbackLoops:
         if category == "all":
             query = f"""
             MATCH (f:Feedback)
-            RETURN f.text AS text, f.categories AS categories, f.semantic_insights AS semantic_insights
+            RETURN f.content AS content, f.categories AS categories, f.semantic_insights AS semantic_insights
             ORDER BY f.timestamp DESC
             LIMIT {limit}
             """
@@ -144,7 +144,7 @@ class FeedbackLoops:
             query = f"""
             MATCH (f:Feedback)
             WHERE $category IN f.categories
-            RETURN f.text AS text, f.categories AS categories, f.semantic_insights AS semantic_insights
+            RETURN f.content AS content, f.categories AS categories, f.semantic_insights AS semantic_insights
             ORDER BY f.timestamp DESC
             LIMIT {limit}
             """
@@ -160,7 +160,7 @@ class FeedbackLoops:
         """
         Integrate feedback into the memory system.
 
-        :param feedback: Feedback text to integrate.
+        :param feedback: Feedback content to integrate.
         """
         try:
             analyzed_feedback = self.gather_feedback(feedback)
@@ -183,10 +183,10 @@ class FeedbackLoops:
         """
         Create a new memory node for a suggestion.
 
-        :param suggestion: The suggestion text to store as memory.
+        :param suggestion: The suggestion content to store as memory.
         """
         query = """
-        CREATE (m:Memory {type: 'Suggestion', text: $suggestion, timestamp: datetime()})
+        CREATE (m:Memory {type: 'Suggestion', content: $suggestion, timestamp: datetime()})
         """
         try:
             self.graph_client.run_query(query, {"suggestion": suggestion})
@@ -198,7 +198,7 @@ class FeedbackLoops:
         """
         Review existing memories in light of negative feedback.
 
-        :param feedback: Feedback text to review.
+        :param feedback: Feedback content to review.
         """
         related_memories = self.memory_engine.search_memories(feedback)
         if related_memories:
@@ -213,7 +213,7 @@ class FeedbackLoops:
         """
         Reinforce positive behaviors or memories based on positive feedback.
 
-        :param feedback: Feedback text to reinforce.
+        :param feedback: Feedback content to reinforce.
         """
         related_memories = self.memory_engine.search_memories(feedback)
         if related_memories:

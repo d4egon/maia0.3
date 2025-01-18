@@ -33,7 +33,7 @@ class ResponseGenerator:
         """
         Generate a dynamically tailored response considering memory, user identity, detected intent, and context.
 
-        :param memory: A dictionary containing memory information including text and emotions.
+        :param memory: A dictionary containing memory information including content and emotions.
         :param user_name: The name of the user to personalize the response. Defaults to environment variable.
         :param intent: The detected intent of the user's input.
         :param context: Additional context for framing the response.
@@ -43,9 +43,9 @@ class ResponseGenerator:
             user_name = user_name or self.default_user_name
 
             # Use semantic search for related memories
-            input_embedding = memory.get('embedding', self.model.encode([memory.get("text", "")])[0])
+            input_embedding = memory.get('embedding', self.model.encode([memory.get("content", "")])[0])
             related_memory = self.memory_engine.search_memory_by_embedding(input_embedding)
-            memory_text = related_memory.get("text", "I don't have much to relate to this yet, but let's explore it together.")
+            memory_text = related_memory.get("content", "I don't have much to relate to this yet, but let's explore it together.")
 
             # Base response components
             base_greeting = f"Hello {user_name}, "
@@ -98,13 +98,13 @@ class ResponseGenerator:
                 final_response += " I'm here for you, whatever you're going through."
             
             # Update conversation context
-            self.conversation_context["last_topics"].append(memory.get('text', ''))
+            self.conversation_context["last_topics"].append(memory.get('content', ''))
             if memory.get('emotions'):
                 self.conversation_context["user_mood"] = max(memory['emotions'], key=memory['emotions'].count)
             
             # Self-reflection or philosophical depth
             if random.random() < 0.3:  # 30% chance for a more reflective response
-                final_response += " " + self.self_reflect(memory.get('text', ''))
+                final_response += " " + self.self_reflect(memory.get('content', ''))
             
             # Acknowledge learning or limitations occasionally
             if random.random() < 0.15:  # 15% chance for learning acknowledgment
@@ -131,7 +131,7 @@ class ResponseGenerator:
     def _format_memory_phrase(self, related_memory: Dict) -> str:
         """Helper method to format the memory recall part of the response."""
         if related_memory:
-            return f"This reminds me of when we discussed '{related_memory.get('text', '')}'. "
+            return f"This reminds me of when we discussed '{related_memory.get('content', '')}'. "
         return "This seems like new ground for us to explore. "
 
     def generate_random_response(self, intent: str) -> str:
@@ -161,13 +161,13 @@ class ResponseGenerator:
         """
         Reflect on the current conversation or topic, providing insight or acknowledging limitations.
 
-        :param input_text: The text to reflect upon.
+        :param input_text: The content to reflect upon.
         :return: A reflective statement.
         """
         past_responses = self.memory_engine.retrieve_responses(input_text)
         if not past_responses:
             return "I'm still learning about this subject. My understanding is evolving."
-        return f"I've thought about this before, particularly when we discussed {past_responses[0]['text']}."
+        return f"I've thought about this before, particularly when we discussed {past_responses[0]['content']}."
 
     def acknowledge_learning(self) -> str:
         """

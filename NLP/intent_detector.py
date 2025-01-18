@@ -30,7 +30,7 @@ class IntentDetector:
 
     def detect_intent(self, tokens: List[str], sentence_embedding: List[float]) -> str:
         """
-        Detect the intent based on the presence of keywords in the tokenized text, memory relevance, 
+        Detect the intent based on the presence of keywords in the tokenized content, memory relevance, 
         and semantic similarity.
 
         :param tokens: List of tokens (words) to check against intents.
@@ -51,9 +51,9 @@ class IntentDetector:
             # Semantic memory search
             memory = self.memory_engine.search_memory_by_embedding(sentence_embedding)
             if memory:
-                logger.info(f"[MEMORY CONTEXT] Found related memory: {memory['text']} for tokens: {tokens}")
+                logger.info(f"[MEMORY CONTEXT] Found related memory: {memory['content']} for tokens: {tokens}")
                 for intent, keywords in self.intents.items():
-                    if intent in ["ethical_question", "thematic_query"] and self._check_keywords(memory['text'].lower().split(), keywords):
+                    if intent in ["ethical_question", "thematic_query"] and self._check_keywords(memory['content'].lower().split(), keywords):
                         return intent
 
             # Semantic intent matching

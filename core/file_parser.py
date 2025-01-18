@@ -10,7 +10,7 @@ from odf.opendocument import load
 from odf import teletype
 from ebooklib import epub
 from openpyxl import load_workbook
-from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+from config.utils import get_whisper_model_and_pipeline
 import xml.etree.ElementTree as ET
 import json
 import yaml
@@ -29,9 +29,6 @@ from core.memory_engine import MemoryEngine
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Constants
-WHISPER_MODEL_ID = "openai/whisper-large-v3-turbo"  # Check for updates on Hugging Face
-
 class FileParser:
     def __init__(self, memory_engine: MemoryEngine):
         """
@@ -48,20 +45,9 @@ class FileParser:
         # Whisper model initialization using HuggingFace transformers
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
         torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        model_id = WHISPER_MODEL_ID
+        model_id = get_whisper_model_and_pipeline
         try:
-            self.model = AutoModelForSpeechSeq2Seq.from_pretrained(
-                model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True
-            ).to(device)
-            self.processor = AutoProcessor.from_pretrained(model_id)
-            self.pipeline = pipeline(
-                "automatic-speech-recognition",
-                model=self.model,
-                tokenizer=self.processor.tokenizer,
-                feature_extractor=self.processor.feature_extractor,
-                torch_dtype=torch_dtype,
-                device=device
-            )
+            self.model, self.processor, self.pipeline = get_whisper_model_and_pipeline()
             logger.info("[INIT] Whisper model initialized successfully.")
         except Exception as e:
             logger.critical(f"[INIT FAILED] Failed to initialize Whisper model: {e}")
@@ -74,7 +60,7 @@ class FileParser:
         :param filepath: Path to the file.
         :param mime_type: MIME type of the file.
         :param language: Language for OCR or transcription.
-        :return: Parsed content.
+        :return: Parsed content structure.
         """
         try:
             if mime_type is None:
@@ -114,7 +100,7 @@ class FileParser:
         :param filepath: Path to the file.
         :param mime_type: MIME type of the file.
         :param language: Language for OCR or transcription.
-        :return: Parsed content.
+        :return: Parsed content structure.
         """
         if mime_type is None:
             mime_type, _ = mimetypes.guess_type(filepath)
@@ -210,11 +196,20 @@ class FileParser:
         """
         try:
             book = epub.read_epub(filepath)
-            content = ""
+            content = {
+                "title": book.get_metadata('DC', 'title')[0][0],
+                "author": book.get_metadata('DC', 'creator')[0][0] if book.get_metadata('DC', 'creator') else "Unknown",
+                "chunks": []
+            }
             for item in book.get_items():
                 if item.get_type() == epub.ITEM_DOCUMENT:
                     item_content = item.get_content().decode('utf-8')
-                    content += self.parse_html_content(item_content)
+                    chapter_content = self.parse_html_content(item_content)
+                    content["chunks"].append({
+                        "type": "chapter",
+                        "content": chapter_content,
+                        "sentences": chapter_content.split('. ')
+                    })
             return content
         except Exception as e:
             logger.error(f"EPUB parsing failed for {filepath}: {e}")
@@ -238,12 +233,21 @@ class FileParser:
 
         :param filepath: Path to the text file.
         :param language: Unused here, kept for consistency.
-        :return: Content of the text file.
+        :return: Content structure of the text file.
         """
         try:
             with open(filepath, 'r', encoding='utf-8') as file:
                 content = file.read()
-            return content
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",                 "chunks": [
+                    {
+                        "type": "text",
+                        "content": content,
+                        "sentences": content.split('. ')
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"Text parsing failed for {filepath}: {e}")
 
@@ -253,7 +257,7 @@ class FileParser:
 
         :param filepath: Path to the PDF file.
         :param language: Language for OCR if needed.
-        :return: Extracted text from the PDF.
+        :return: Content structure from the PDF.
         """
         try:
             with open(filepath, 'rb') as file:
@@ -266,7 +270,17 @@ class FileParser:
                     images = convert_from_path(filepath)
                     for image in images:
                         content += pytesseract.image_to_string(image, lang=language)
-            return content
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "document",
+                        "content": content,
+                        "sentences": content.split('. ')
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"PDF parsing failed for {filepath}: {e}")
 
@@ -276,12 +290,22 @@ class FileParser:
 
         :param filepath: Path to the image file.
         :param language: Language for OCR.
-        :return: Extracted text from the image.
+        :return: Content structure from the image.
         """
         try:
             image = Image.open(filepath)
             content = pytesseract.image_to_string(image, lang=language)
-            return content
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "image_text",
+                        "content": content,
+                        "sentences": content.split('. ')
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"Image parsing failed for {filepath}: {e}")
 
@@ -291,12 +315,22 @@ class FileParser:
 
         :param filepath: Path to the DOCX file.
         :param language: Unused here, kept for consistency.
-        :return: Extracted text from the DOCX.
+        :return: Content structure from the DOCX.
         """
         try:
             doc = Document(filepath)
             content = '\n'.join([paragraph.text for paragraph in doc.paragraphs])
-            return content
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "document",
+                        "content": content,
+                        "sentences": content.split('. ')
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"DOCX parsing failed for {filepath}: {e}")
 
@@ -306,7 +340,7 @@ class FileParser:
 
         :param filepath: Path to the Excel file.
         :param language: Unused here, kept for consistency.
-        :return: Extracted text from all sheets.
+        :return: Content structure from all sheets.
         """
         try:
             workbook = load_workbook(filename=filepath, read_only=True)
@@ -315,7 +349,17 @@ class FileParser:
                 ws = workbook[sheet]
                 for row in ws.iter_rows(values_only=True):
                     content.append(', '.join(str(cell) for cell in row if cell is not None))
-            return '\n'.join(content)
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "spreadsheet",
+                        "content": '\n'.join(content),
+                        "sentences": ['\n'.join(content)]  # Treating spreadsheet data as one sentence
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"Excel parsing failed for {filepath}: {e}")
 
@@ -330,7 +374,18 @@ class FileParser:
         try:
             with open(filepath, 'r', encoding='utf-8') as file:
                 data = yaml.safe_load(file)
-            return yaml.dump(data, default_flow_style=False)
+            yaml_str = yaml.dump(data, default_flow_style=False)
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "yaml",
+                        "content": yaml_str,
+                        "sentences": [yaml_str]  # Treating YAML data as one sentence
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"YAML parsing failed for {filepath}: {e}")
 
@@ -340,12 +395,23 @@ class FileParser:
 
         :param filepath: Path to the JSON file.
         :param language: Unused here, kept for consistency.
-        :return: Parsed content.
+        :return: Parsed content structure.
         """
         try:
             with open(filepath, 'r') as file:
                 content = json.load(file)
-            return json.dumps(content, indent=4)
+            json_str = json.dumps(content, indent=4)
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "json",
+                        "content": json_str,
+                        "sentences": [json_str]  # Treating JSON data as one sentence
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"JSON parsing failed for {filepath}: {e}")
 
@@ -355,13 +421,23 @@ class FileParser:
     
         :param filepath: Path to the CSV file.
         :param language: Unused here, kept for consistency.
-        :return: Extracted text.
+        :return: Extracted content structure.
         """
         try:
             with open(filepath, 'r', encoding='utf-8') as file:
                 reader = csv.reader(file)
                 content = '\n'.join([', '.join(row) for row in reader])
-            return content
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "csv",
+                        "content": content,
+                        "sentences": [content]  # Treating CSV data as one sentence
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"CSV parsing failed for {filepath}: {e}")
 
@@ -371,13 +447,23 @@ class FileParser:
 
         :param filepath: Path to the XML file.
         :param language: Unused here, kept for consistency.
-        :return: Extracted text.
+        :return: Extracted content structure.
         """
         try:
             tree = ET.parse(filepath)
             root = tree.getroot()
             content = ET.tostring(root, encoding='unicode')
-            return content
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "xml",
+                        "content": content,
+                        "sentences": [content]  # Treating XML data as one sentence
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"XML parsing failed for {filepath}: {e}")
 
@@ -387,12 +473,22 @@ class FileParser:
 
         :param filepath: Path to the HTML file.
         :param language: Unused here, kept for consistency.
-        :return: Extracted text.
+        :return: Extracted content structure.
         """
         try:
             with open(filepath, 'r', encoding='utf-8') as file:
                 content = html.unescape(file.read())
-            return content
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "html",
+                        "content": content,
+                        "sentences": content.split('. ')
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"HTML parsing failed for {filepath}: {e}")
 
@@ -402,12 +498,22 @@ class FileParser:
 
         :param filepath: Path to the ODT file.
         :param language: Unused here, kept for consistency.
-        :return: Extracted text.
+        :return: Extracted content structure.
         """
         try:
             textdoc = load(filepath)
             content = teletype.extractText(textdoc)
-            return content
+            return {
+                "title": os.path.basename(filepath),
+                "author": "Unknown",
+                "chunks": [
+                    {
+                        "type": "document",
+                                                "content": content,
+                        "sentences": content.split('. ')
+                    }
+                ]
+            }
         except Exception as e:
             raise ValueError(f"ODT parsing failed for {filepath}: {e}")
 
@@ -417,7 +523,7 @@ class FileParser:
 
         :param dirpath: Path to the directory to parse.
         :param language: Language for OCR and speech recognition.
-        :return: List of tuples containing filename and parsed content.
+        :return: List of dictionaries containing filename and parsed content structure.
         """
         results = []
         try:
@@ -426,7 +532,7 @@ class FileParser:
                     file_path = os.path.join(root, file)
                     try:
                         content = self.parse(file_path, language=language)
-                        results.append((file, content))
+                        results.append({"filename": file, "content": content})
                     except Exception as e:
                         logger.warning(f"Failed to parse {file_path}: {e}")
         except Exception as e:
@@ -440,32 +546,49 @@ class FileParser:
 
         :param filepath: Path to the file.
         :param language: Unused here, kept for consistency.
-        :return: A message indicating the file type is not supported for content extraction.
+        :return: A dictionary indicating the file type is not supported for content extraction.
         """
         _, file_extension = os.path.splitext(filepath)
-        return f"File type {file_extension} is not supported for content extraction."
+        return {
+            "title": os.path.basename(filepath),
+            "author": "Unknown",
+            "chunks": [
+                {
+                    "type": "unsupported",
+                    "content": f"File type {file_extension} is not supported for content extraction.",
+                    "sentences": [f"File type {file_extension} is not supported for content extraction."]
+                }
+            ]
+        }
 
     def parse_and_store(self, filepath, mime_type=None, language="eng"):
         """
-        Parse the file and store its content using MemoryEngine.
+        Parse the file, structure the content, and store it using MemoryEngine.
 
         :param filepath: Path to the file.
         :param mime_type: MIME type of the file.
         :param language: Language for OCR or transcription.
-        :return: Parsed content.
+        :return: Parsed content structure.
         """
         try:
-            content = self.parse(filepath, mime_type, language)
-            self.memory_engine.create_memory_node(
-                content, 
-                {
+            # Parse the file to get structured content
+            parsed_content = self.parse(filepath, mime_type, language)
+            
+            # Use the new MemoryEngine method to process and store the content
+            content_id = self.memory_engine.upload_and_process_content(
+                file_path=filepath,
+                content_type=mime_type if mime_type else mimetypes.guess_type(filepath)[0],
+                title=parsed_content["title"],
+                author=parsed_content["author"],
+                metadata={
                     "type": "parsed_content", 
                     "source_file": filepath,
                     "mime_type": mime_type if mime_type else mimetypes.guess_type(filepath)[0]
-                },
-                [os.path.splitext(os.path.basename(filepath))[0]]  # Use filename without extension as keyword
+                }
             )
-            return content
+            
+            logger.info(f"Content from {filepath} was parsed and stored with ID: {content_id}")
+            return parsed_content
         except Exception as e:
             logger.error(f"Failed to parse and store file {filepath}. Error details: {str(e)}")
             raise

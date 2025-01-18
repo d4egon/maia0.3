@@ -3,6 +3,8 @@ import sys
 import logging
 import time
 import json
+from uuid import uuid4
+from typing import Dict, List, Optional
 from threading import Thread
 from functools import lru_cache
 from tempfile import NamedTemporaryFile
@@ -20,12 +22,21 @@ from NLP.response_generator import ResponseGenerator
 from NLP.nlp_engine import NLP
 from core.emotion_engine import EmotionEngine
 from core.emotion_fusion_engine import EmotionFusionEngine
+from core.collaborative_learning import CollaborativeLearning
 from core.conversation_engine import ConversationEngine
 from core.dream_engine import DreamEngine
 from core.ethics_engine import EthicsEngine
 from flask_socketio import SocketIO
 from sentence_transformers import SentenceTransformer, util
 import numpy as np
+
+# Custom logging filter to ignore log messages containing "Batches"
+class IgnoreBatchesFilter(logging.Filter):
+    def filter(self, record):
+        return 'Batches' not in record.getMessage()
+
+logger = logging.getLogger()
+logger.addFilter(IgnoreBatchesFilter())
 
 # Load Environment Variables
 load_dotenv()
@@ -56,7 +67,18 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE_MB * 1024 * 1024  # Convert MB to bytes
 
 socketio = SocketIO(app)
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L12-v2")
+
+class ConversationState:
+    def __init__(self):
+        self.current_chunk_id: Optional[str] = None
+        self.current_chunk_order: int = 1
+        self.current_chunk_size: int = 0
+        self.last_intent: Optional[str] = None
+        self.memory_node_id: str = None  # Changed to None to be set dynamically
+
+# Global state for simplicity; in a real app, this would be session-based or stored elsewhere
+conversation_state = ConversationState()
+
 
 # Secure Headers Setup
 @app.after_request
@@ -90,16 +112,16 @@ try:
     neo4j = Neo4jConnector(neo4j_uri, neo4j_user, neo4j_password)
     memory_engine = MemoryEngine(neo4j)
     response_gen = ResponseGenerator(memory_engine, neo4j)
-    file_parser = FileParser()
+    file_parser = FileParser(memory_engine)
     nlp_engine = NLP(memory_engine, response_gen, neo4j)
-    emotion_engine = EmotionEngine(db=neo4j)
+    emotion_engine = EmotionEngine(memory_engine)
     emotion_fusion_engine = EmotionFusionEngine(memory_engine, nlp_engine)
-    dream_engine = DreamEngine(memory_engine, ContextSearchEngine(neo4j))
+    dream_engine = DreamEngine(memory_engine, ContextSearchEngine(memory_engine))  # Adjusted here
     ethics_engine = EthicsEngine(memory_engine)
-    context_search_engine = ContextSearchEngine(neo4j)
+    context_search_engine = ContextSearchEngine(memory_engine)  # Adjusted here
     consciousness_engine = ConsciousnessEngine(memory_engine, emotion_engine)
     intent_detector = IntentDetector(memory_engine)
-    
+    collaboration_engine = CollaborativeLearning(ConversationEngine(memory_engine, response_gen, context_search_engine), nlp_engine, memory_engine)  # Adjusted here
     conversation_engine = ConversationEngine(
         memory_engine,
         response_gen,
@@ -158,16 +180,16 @@ def perform_search(query):
 def summarize_search_results(results):
     return f"Here are some results: {', '.join(results)}"
 
-def update_model_with_text(text):
-    def train_task(text):
+def update_model_with_text(content):
+    def train_task(content):
         try:
-            tokenized_input = model.tokenize(text)
+            tokenized_input = memory_engine.model.tokenize(content)
             input_ids = tokenized_input["input_ids"]
-            logger.info(f"[MODEL TRAIN] Training on text: {text[:50]}...")
+            logger.info(f"[MODEL TRAIN] Training on content: {content[:50]}...")
         except Exception as e:
             logger.error(f"[MODEL TRAIN ERROR] Error during training: {e}", exc_info=True)
 
-    Thread(target=train_task, args=(text,)).start()
+    Thread(target=train_task, args=(content,)).start()
 
 # Routes
 @app.route('/')
@@ -178,21 +200,21 @@ def index():
 @app.route('/embed', methods=['POST'])
 def embed():
     data = request.json
-    text = data.get('text')
-    if not text:
-        return jsonify({'error': 'No text provided'}), 400
+    content = data.get('content')
+    if not content:
+        return jsonify({'error': 'No content provided'}), 400
     
     try:
-        embedding = model.encode(text).tolist()
+        embedding = memory_engine.model.encode(content).tolist()
         try:
-            update_model_with_text(text)
-            logger.info(f"[MODEL UPDATE] Model updated with new text: {text[:50]}...")
+            update_model_with_text(content)
+            logger.info(f"[MODEL UPDATE] Model updated with new content: {content[:50]}...")
         except Exception as e:
             logger.error(f"[MODEL UPDATE ERROR] {e}", exc_info=True)
         
-            return jsonify({'embedding': embedding})
+        return jsonify({'embedding': embedding})
     except Exception as e:
-        logger.error(f"[EMBED ERROR] Failed to encode text: {e}", exc_info=True)
+        logger.error(f"[EMBED ERROR] Failed to encode content: {e}", exc_info=True)
     return jsonify({'error': 'Failed to generate embedding', 'status': 'error'}), 500
 
 @app.route('/upload', methods=['POST'])
@@ -217,17 +239,21 @@ def upload_file():
         if is_advanced:
             logger.info("[ADVANCED PROCESSING] Additional processing steps applied.")
 
-        # Store the parsed content in memory
-        memory_engine.store_memory(
-            text=result,
-            emotions=["neutral"],
-            extra_properties={"source": filename, "type": "advanced_upload" if is_advanced else "upload"}
+        # Use the new method to upload and process content
+        content_id = memory_engine.upload_and_process_content(
+            file_path=filepath,
+            content_type=file.content_type,
+            title=file.filename,
+            author="Anonymous",  # Assuming author is unknown or default
+            metadata={"source": filename, "type": "advanced_upload" if is_advanced else "upload"}
         )
 
         # Ethics Check
-        if not ethics_engine.check(result):
+        # Note: You might want to retrieve the content of the node to check with ethics_engine
+        content_node = neo4j.run_query("MATCH (c:Content {id: $content_id}) RETURN c.content AS content", {"content_id": content_id})
+        if content_node and not ethics_engine.check(content_node[0]['content']):
             logger.warning("[ETHICS CHECK] Ethical concern detected in uploaded content.")
-            # Here you might want to handle ethical concerns, e.g., by notifying an admin or flagging the content
+            # Handle ethical concerns here
 
         # Dream Analysis
         dream_analysis = dream_engine.analyze(result)
@@ -266,12 +292,13 @@ def upload_audio():
         if not ethics_engine.check(transcription):
             logger.warning("[ETHICS CHECK] Ethical concern detected in audio transcription.")
 
-        return jsonify({"text": transcription})
+        return jsonify({"content": transcription})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 @app.route('/ask_maia', methods=['POST'])
 def ask_maia():
+    global conversation_state
     try:
         data = request.get_json()
         validate_request_data(data, ['question'])
@@ -281,7 +308,37 @@ def ask_maia():
         response, intent = get_standard_response(question)
         if response:
             if intent != "greeting":
-                memory_engine.store_memory(text=f"Q: {question}\nA: {response}", emotions=["neutral"], extra_properties={"type": "conversation"})
+                # Change the variable name here
+                should_create_new_chunk_result = should_create_new_chunk(intent, conversation_state)
+                
+                if should_create_new_chunk_result:
+                    # Create a new chunk
+                    conversation_state.current_chunk_id = str(uuid4())
+                    conversation_state.current_chunk_order = 1
+                    conversation_state.current_chunk_size = 0
+                    
+                    memory_chunk_id = memory_engine.create_memory_chunk(
+                        memory_node_id=conversation_state.memory_node_id,
+                        order=conversation_state.current_chunk_order,
+                        chunk_type="conversation",
+                        keywords=["conversation", intent]
+                    )
+                else:
+                    # Continue with the existing chunk
+                    memory_chunk_id = conversation_state.current_chunk_id
+                    conversation_state.current_chunk_order += 1
+                
+                # Create the memory
+                memory_engine.create_memory(
+                    chunk_id=memory_chunk_id,
+                    order=conversation_state.current_chunk_order,
+                    content=f"Q: {question}\nA: {response}", 
+                    metadata={"emotions": [fused_emotion], "type": "conversation", "intent": intent}
+                )
+                # Increment the chunk size
+                conversation_state.current_chunk_size += 1
+                conversation_state.last_intent = intent
+
             return jsonify({"response": response, "intent": intent, "status": "success"}), 200
         
         # If no standard response, proceed with NLP processing
@@ -294,8 +351,38 @@ def ask_maia():
             response, emotions = nlp_engine.process(question)
             # Emotion Fusion
             fused_emotion = emotion_fusion_engine.fuse_emotions(emotions)
-            # Store interaction with emotion data
-            memory_engine.store_memory(text=f"Q: {question}\nA: {response}", emotions=[fused_emotion], extra_properties={"type": "conversation", "intent": intent})
+            
+            # Change the variable name here as well
+            should_create_new_chunk_result = should_create_new_chunk(intent, conversation_state)
+            
+            if should_create_new_chunk_result:
+                # Create a new chunk
+                conversation_state.current_chunk_id = str(uuid4())
+                conversation_state.current_chunk_order = 1
+                conversation_state.current_chunk_size = 0
+                
+                memory_chunk_id = memory_engine.create_memory_chunk(
+                    memory_node_id=conversation_state.memory_node_id,
+                    order=conversation_state.current_chunk_order,
+                    chunk_type="conversation",
+                    keywords=["conversation", intent]
+                )
+            else:
+                # Continue with the existing chunk
+                memory_chunk_id = conversation_state.current_chunk_id
+                conversation_state.current_chunk_order += 1
+            
+            # Create the memory with the NLP processed response
+            memory_engine.create_memory(
+                chunk_id=memory_chunk_id,
+                order=conversation_state.current_chunk_order,
+                content=f"Q: {question}\nA: {response}", 
+                metadata={"emotions": [fused_emotion], "type": "conversation", "intent": intent}
+            )
+            
+            # Increment the chunk size
+            conversation_state.current_chunk_size += 1
+            conversation_state.last_intent = intent
 
         # Ethics Check on Response
         if not ethics_engine.check(response):
@@ -303,24 +390,138 @@ def ask_maia():
             # Handle ethical concern here, perhaps by using a fallback response or notifying an admin
 
         return jsonify({"response": response, "intent": intent, "status": "success"}), 200
+    except ValueError as ve:
+        logger.error(f"[ASK MAIA] Error creating memory chunk: {ve}")
+        return jsonify({"message": "An error occurred while creating a memory chunk.", "status": "error"}), 500
     except Exception as e:
         logger.error(f"[ASK MAIA] Error: {e}", exc_info=True)
         return jsonify({"message": "An error occurred.", "status": "error"}), 500
 
-@app.route('/get_gallery_images', methods=['GET'])
-def get_gallery_images():
-    if 'gallery' not in gallery_cache or 'last_update' not in gallery_cache or (time.time() - gallery_cache['last_update']) > 3600:
-        gallery_cache['gallery'] = {
-            'images': cached_get_gallery_images(),
-            'last_update': time.time()
-        }
-    return jsonify({"images": gallery_cache['gallery']['images']})
+def should_create_new_chunk(intent: str, state: ConversationState) -> bool:
+    # Check if the chunk is full or if the intent has changed
+    MAX_CHUNK_SIZE = 10  # Define the maximum number of memories per chunk
+    
+    # If the chunk is full or the intent has changed, we create a new chunk
+    return state.current_chunk_size >= MAX_CHUNK_SIZE or intent != state.last_intent
 
-# Serve static files (like images)
-@app.route('/static/<path:path>')
-def send_static(path):
-    return send_from_directory('web_server/static', path)
+@app.route('/analyze_dream', methods=['POST'])
+def analyze_dream():
+    """
+    Endpoint to analyze a dream narrative using the DreamEngine.
 
-if __name__ == "__main__":
-    logger.info("[START] MAIA Server is starting...")
-    socketio.run(app, host="0.0.0.0", port=5000, debug=os.getenv("FLASK_DEBUG", "false").lower() == "true")
+    This route accepts a POST request with a JSON body containing the dream narrative.
+    It then uses the DreamEngine to analyze the dream, returning the analysis results.
+
+    :return: JSON response with the dream analysis or an error message.
+    """
+    try:
+        # Validate incoming data
+        data = request.get_json()
+        validate_request_data(data, ['dream_narrative'])
+        dream_narrative = data['dream_narrative']
+
+        # Perform ethics check on the dream narrative
+        if not ethics_engine.check(dream_narrative):
+            logger.warning("[ANALYZE DREAM] Ethical concern detected in dream narrative.")
+            # Here you might want to handle ethical concerns, e.g., by returning a generic response or flagging for review
+            return jsonify({"message": "Ethical concern detected. Please review your narrative.", "status": "warning"}), 400
+
+        # Analyze the dream
+        analysis_result = dream_engine.analyze(dream_narrative)
+        
+        if analysis_result:
+            logger.info(f"[ANALYZE DREAM] Dream analysis result: {analysis_result}")
+            # Store the dream narrative and its analysis in memory
+            memory_engine.create_memory(
+                content=f"Dream Narrative: {dream_narrative}\nAnalysis: {analysis_result}",
+                emotions=["neutral"],  # Assuming dreams are neutral unless specified otherwise
+                extra_properties={"type": "dream_analysis"}
+            )
+            return jsonify({
+                "analysis": analysis_result,
+                "status": "success"
+            }), 200
+        else:
+            logger.warning("[ANALYZE DREAM] No analysis result returned.")
+            return jsonify({
+                "message": "No analysis result could be generated for the provided dream narrative.",
+                "status": "warning"
+            }), 400
+    except Exception as e:
+        logger.error(f"[ANALYZE DREAM ERROR] {e}", exc_info=True)
+        return jsonify({"message": "An error occurred during dream analysis.", "status": "error"}), 500
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    if 'file' not in request.files:
+        return jsonify({"message": "No file part", "status": "error"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"message": "No selected file", "status": "error"}), 400
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        # Here you might want to process the image further or store details in memory_engine
+        memory_engine.create_memory(
+            content=f"Image uploaded: {filename}",
+            emotions=["neutral"],
+            extra_properties={"type": "image_upload", "filename": filename}
+        )
+        # Update gallery cache if necessary
+        if 'gallery' in gallery_cache:
+            gallery_cache['gallery']['images'].append(filename)
+            gallery_cache['last_update'] = time.time()
+        return jsonify({"message": "Image uploaded successfully", "status": "success"}), 200
+    return jsonify({"message": "Invalid file type", "status": "error"}), 400
+
+@app.route('/dream', methods=['POST'])
+def dream():
+    data = request.get_json()
+    validate_request_data(data, ['dream_content'])
+    dream_content = data['dream_content']
+    
+    try:
+        # Dream analysis using DreamEngine
+        dream_analysis = dream_engine.analyze(dream_content)
+        logger.info(f"[DREAM] Dream analysis: {dream_analysis}")
+        
+        # Ethics check on dream content
+        if not ethics_engine.check(dream_content):
+            logger.warning("[DREAM] Ethical concern detected in dream content.")
+            return jsonify({"message": "Ethical concern detected in dream content.", "status": "warning"}), 400
+
+        # Store dream in memory
+        memory_engine.create_memory(
+            content=dream_content,
+            emotions=["mystical"],
+            extra_properties={"type": "dream"}
+        )
+        
+        return jsonify({"analysis": dream_analysis, "status": "success"}), 200
+    except Exception as e:
+        logger.error(f"[DREAM ERROR] {e}", exc_info=True)
+        return jsonify({"message": "An error occurred during dream analysis.", "status": "error"}), 500
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('500.html'), 500
+
+# WebSocket for real-time interaction
+@socketio.on('user_message')
+def handle_user_message(json):
+    message = json.get('message', '')
+    if message:
+        try:
+            response = conversation_engine.process_message(message)
+            socketio.emit('bot_message', {'message': response})
+        except Exception as e:
+            logger.error(f"[SOCKET ERROR] {e}", exc_info=True)
+            socketio.emit('bot_message', {'message': "An error occurred, please try again."})
+
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=5000, debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true')

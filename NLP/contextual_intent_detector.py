@@ -64,16 +64,16 @@ class ContextualIntentDetector:
                 similar_words.append(word)
         return similar_words
 
-    def detect_intent(self, text: str) -> Dict[str, float]:
+    def detect_intent(self, content: str) -> Dict[str, float]:
         """
-        Detect the intent from the given text using keyword matching, semantic similarity, and memory context.
+        Detect the intent from the given content using keyword matching, semantic similarity, and memory context.
 
-        :param text: The text to analyze for intent.
+        :param content: The content to analyze for intent.
         :return: A dictionary containing the detected intent and its confidence score.
         """
         try:
-            text_lower = text.lower().strip()
-            text_embedding = self.model.encode([text])[0]
+            text_lower = content.lower().strip()
+            text_embedding = self.model.encode([content])[0]
 
             # Initialize scoring for all intents
             intent_scores: Dict[str, float] = {intent: 0.0 for intent in self.expanded_keywords}
@@ -88,12 +88,12 @@ class ContextualIntentDetector:
             # Incorporate memory context using semantic similarity
             memory = self.memory_engine.search_memory_by_embedding(text_embedding)
             if memory:
-                logger.info(f"[MEMORY CONTEXT] Found memory: {memory['text']} for input: '{text}'")
+                logger.info(f"[MEMORY CONTEXT] Found memory: {memory['content']} for input: '{content}'")
                 memory_embedding = memory.get('embedding', [])
                 if memory_embedding:
                     similarity = util.cos_sim(text_embedding, memory_embedding).item()
                     for intent, words in self.expanded_keywords.items():
-                        if any(word in memory['text'].lower() for word in words):
+                        if any(word in memory['content'].lower() for word in words):
                             intent_scores[intent] += similarity * 2  # Higher weight for memory matches
 
             # Determine the best matching intent and calculate confidence
@@ -104,7 +104,7 @@ class ContextualIntentDetector:
 
                 # Fallback if no significant score is found
                 if confidence < 0.2:  # Threshold for low confidence
-                    logger.info(f"[INTENT DETECTION] No significant intent detected for text: '{text}'")
+                    logger.info(f"[INTENT DETECTION] No significant intent detected for content: '{content}'")
                     return {"intent": "unknown", "confidence": 0.0}
                 logger.info(f"[INTENT DETECTION] Detected intent: {best_intent} with confidence {confidence:.2f}")
                 return {"intent": best_intent, "confidence": round(confidence, 2)}
@@ -112,5 +112,5 @@ class ContextualIntentDetector:
                 return {"intent": "unknown", "confidence": 0.0}
 
         except Exception as e:
-            logger.error(f"[INTENT DETECTION ERROR] Error detecting intent for text: '{text}': {e}", exc_info=True)
+            logger.error(f"[INTENT DETECTION ERROR] Error detecting intent for content: '{content}': {e}", exc_info=True)
             return {"intent": "unknown", "confidence": 0.0}

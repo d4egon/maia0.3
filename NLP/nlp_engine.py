@@ -27,7 +27,7 @@ class NLP:
         self.neo4j_connector = neo4j_connector
         self.tokenizer = Tokenizer()
         self.sentence_parser = SentenceParser()
-        self.file_parser = FileParser()
+        self.file_parser = FileParser(memory_engine)
         self.intent_detector = IntentDetector(memory_engine)
         self.attribute_enrichment = AttributeEnrichment(memory_engine)
         self.model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')

@@ -6,6 +6,7 @@ from core.context_search import ContextSearchEngine
 from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import time
+from config.utils import get_sentence_transformer_model
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class DreamEngine:
         """
         self.memory_engine = memory_engine
         self.context_search = context_search_engine
-        self.model = memory_engine.model  # Use the same model from MemoryEngine for semantic analysis
+        self.model = get_sentence_transformer_model()
         self.chaos_level = 0.3  # Default level of chaos
 
     def set_chaos_level(self, level: float):
@@ -42,12 +43,12 @@ class DreamEngine:
         """Construct a narrative with chaotic elements."""
         narrative = []
         for memory in memories:
-            if memory.get("text"):
-                # Add a chance to distort or rearrange text
+            if memory.get("content"):
+                # Add a chance to distort or rearrange content
                 if random.random() < self.chaos_level:
-                    narrative.append(self._chaos_mix(memory["text"]))
+                    narrative.append(self._chaos_mix(memory["content"]))
                 else:
-                    narrative.append(memory["text"])
+                    narrative.append(memory["content"])
         
         # Shuffle the narrative segments for added chaos
         if random.random() < self.chaos_level:
@@ -55,9 +56,9 @@ class DreamEngine:
         
         return "In a chaotic dream, ".join(narrative)
 
-    def _chaos_mix(self, text: str) -> str:
-        """Randomly mix up words in the text."""
-        words = text.split()
+    def _chaos_mix(self, content: str) -> str:
+        """Randomly mix up words in the content."""
+        words = content.split()
         random.shuffle(words)
         return " ".join(words)
 
@@ -131,7 +132,7 @@ class DreamEngine:
         """
         Interpret a dream with a chaotic twist.
 
-        :param dream_narrative: The text of the dream to interpret.
+        :param dream_narrative: The content of the dream to interpret.
         :return: Dictionary containing interpretations or insights.
         """
         try:
@@ -289,7 +290,7 @@ class DreamEngine:
                         dream_narrative, 
                         "INFLUENCED_BY_DREAM"
                     )
-                    insights.append(f"Dream seems to connect with memory: '{memory['text'][:50]}...'")
+                    insights.append(f"Dream seems to connect with memory: '{memory['content'][:50]}...'")
 
                 logger.info(f"[DREAM INFLUENCE] Dream influenced {len(insights)} memories.")
                 return {"insights": insights}
@@ -307,7 +308,7 @@ class DreamEngine:
             content_embedding = self.model.encode([content])[0].tolist()
             
             # Extract key elements
-            entities = [ent.text for ent in self.model.nlp(content).ents]  # Assuming NLP is part of the sentence transformer model
+            entities = [ent.content for ent in self.model.nlp(content).ents]  # Assuming NLP is part of the sentence transformer model
             patterns = self._find_patterns(content)
             context = self.context_search.search_related(content)
             
@@ -334,10 +335,10 @@ class DreamEngine:
         """Extract dream patterns with chaotic elements."""
         doc = self.model.nlp(content)
         patterns = {
-            'symbols': [chunk.text for chunk in doc.noun_chunks],
-            'actions': [token.text for token in doc if token.pos_ == 'VERB'],
-            'subjects': [token.text for token in doc if token.dep_ == 'nsubj'],
-            'emotions': [token.text for token in doc if token.pos_ == 'ADJ']
+            'symbols': [chunk.content for chunk in doc.noun_chunks],
+            'actions': [token.content for token in doc if token.pos_ == 'VERB'],
+            'subjects': [token.content for token in doc if token.dep_ == 'nsubj'],
+            'emotions': [token.content for token in doc if token.pos_ == 'ADJ']
         }
         
         if random.random() < self.chaos_level:
