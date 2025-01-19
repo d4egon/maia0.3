@@ -1,29 +1,37 @@
+# Standard library imports
 import logging
 import mimetypes
 import os
 import tempfile
 from typing import Dict
-from pypdf import PdfReader
+import xml.etree.ElementTree as ET
+import json
+import yaml
+import tarfile
+import zipfile
+import csv
+import html
+from io import StringIO
+
+# Third-party library imports
+import torch
 import pytesseract
+import py7zr
 from PIL import Image
+from pdf2image import convert_from_path
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter # type: ignore
+from pdfminer.converter import TextConverter # type: ignore
+from pdfminer.layout import LAParams # type: ignore
+from pdfminer.pdfpage import PDFPage # type: ignore
 from docx import Document
 from odf.opendocument import load
 from odf import teletype
 from ebooklib import epub
 from openpyxl import load_workbook
-from config.utils import get_whisper_model_and_pipeline
-import xml.etree.ElementTree as ET
-import json
-import yaml
-import wave
-import tarfile
-import zipfile
-import py7zr
-import csv
-import html
-import shutil
 from datasets import load_dataset
-import torch
+
+# Local imports
+from config.utils import get_whisper_model_and_pipeline
 from core.memory_engine import MemoryEngine
 
 # Logger setup
@@ -283,23 +291,40 @@ class FileParser:
 
     def parse_pdf(self, filepath, language="eng"):
         """
-        Parse PDF files.
+        Parse PDF files using pdfminer.six for text extraction, falling back to OCR with pytesseract if needed.
 
         :param filepath: Path to the PDF file.
         :param language: Language for OCR if needed.
         :return: Content structure from the PDF.
         """
         try:
+            # First attempt with pdfminer.six
+            resource_manager = PDFResourceManager()
+            string_io = StringIO()
+            laparams = LAParams()
+            converter = TextConverter(resource_manager, string_io, laparams=laparams)
             with open(filepath, 'rb') as file:
-                reader = PdfReader(file)
+                interpreter = PDFPageInterpreter(resource_manager, converter)
+                for page in PDFPage.get_pages(file):
+                    interpreter.process_page(page)
+                content = string_io.getvalue()
+            
+            # Close the StringIO to free memory
+            converter.close()
+            string_io.close()
+
+            # If content is empty or just whitespace, we'll attempt OCR
+            if not content.strip():
+                logger.info(f"PDF text extraction failed for {filepath}, attempting OCR.")
+                # Convert PDF to images and perform OCR
+                images = convert_from_path(filepath)
                 content = ""
-                for page in reader.pages:
-                    content += page.extract_text()
-                if not content.strip():
-                    from pdf2image import convert_from_path
-                    images = convert_from_path(filepath)
-                    for image in images:
-                        content += pytesseract.image_to_string(image, lang=language)
+                for image in images:
+                    content += pytesseract.image_to_string(image, lang=language)
+            
+            if not content.strip():
+                raise ValueError("No content could be extracted from the PDF.")
+
             return {
                 "title": os.path.basename(filepath),
                 "author": "Unknown",
@@ -312,7 +337,8 @@ class FileParser:
                 ]
             }
         except Exception as e:
-            raise ValueError(f"PDF parsing failed for {filepath}: {e}")
+            logger.error(f"PDF parsing failed for {filepath}: {e}")
+            raise ValueError(f"PDF parsing failed: {e}")
 
     def parse_image(self, filepath, language="eng"):
         """
