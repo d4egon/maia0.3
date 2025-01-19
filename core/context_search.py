@@ -4,20 +4,21 @@ import torch
 from sentence_transformers import SentenceTransformer, util
 from typing import List, Dict, Union
 import numpy as np
+from config.utils import get_sentence_transformer_model
 
 # Initialize logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class ContextSearchEngine:
-    def __init__(self, memory_engine):
+    def __init__(self, neo4j):
         """
-        Initialize ContextSearchEngine with MemoryEngine for database operations and sentence embedding model.
+        Initialize ContextSearchEngine with Neo4j connection and fetch the centralized model.
 
-        :param memory_engine: An instance of MemoryEngine for memory operations.
+        :param neo4j: An instance of Neo4jConnector for database operations.
         """
-        self.memory_engine = memory_engine
-        self.embedding_model = memory_engine.model  # Use the model from MemoryEngine for consistency
+        self.neo4j = neo4j
+        self.embedding_model = get_sentence_transformer_model()
 
     def search_related_contexts(self, content: str, similarity_threshold: float = 0.7, top_n: int = 20) -> List[Dict]:
         """

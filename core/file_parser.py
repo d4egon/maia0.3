@@ -2,6 +2,7 @@ import logging
 import mimetypes
 import os
 import tempfile
+from typing import Dict
 from pypdf import PdfReader
 import pytesseract
 from PIL import Image
@@ -45,7 +46,6 @@ class FileParser:
         # Whisper model initialization using HuggingFace transformers
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
         torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        model_id = get_whisper_model_and_pipeline
         try:
             self.model, self.processor, self.pipeline = get_whisper_model_and_pipeline()
             logger.info("[INIT] Whisper model initialized successfully.")
@@ -54,6 +54,7 @@ class FileParser:
             raise RuntimeError("Failed to initialize Whisper model.")
 
     def parse(self, filepath, mime_type=None, language="eng"):
+        logger.info(f"Attempting to parse file: {filepath}")
         """
         Parse the file based on its MIME type.
 
@@ -65,10 +66,14 @@ class FileParser:
         try:
             if mime_type is None:
                 mime_type, _ = mimetypes.guess_type(filepath)
-
             if mime_type is None:
                 raise ValueError(f"Could not determine MIME type for file: {filepath}")
-
+            if mime_type == 'txt':
+                with open(filepath, 'r', encoding='utf-8') as file:
+                    content = file.read()
+                    # Simple chunking by paragraphs or by a fixed number of characters
+                    chunks = self._chunk_content(content)
+                    return {'chunks': chunks}
             if mime_type.startswith("text"):
                 return self.parse_text(filepath)
             elif mime_type == "application/pdf":
@@ -91,6 +96,9 @@ class FileParser:
                 return self._parse_file(filepath, mime_type, language)
         except Exception as e:
             logger.error(f"Failed to parse file {filepath}. Error details: {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Error parsing file {filepath}: {str(e)}")
             raise
 
     def _parse_file(self, filepath, mime_type=None, language="eng"):
@@ -120,8 +128,30 @@ class FileParser:
             return self.parse_excel(filepath)
         elif mime_type == "application/x-yaml":
             return self.parse_yaml(filepath)
+        elif mime_type.startswith("audio"):
+            return self.parse_audio(filepath, language)
         else:
             raise ValueError(f"Unsupported file type: {mime_type}")
+        
+    def _chunk_content(self, content: str) -> Dict:
+        """
+        Chunk the content into manageable pieces.
+
+        :param content: The content to chunk.
+        :return: Dictionary with chunk types and content.
+        """
+        # Example: Chunk by paragraphs
+        paragraphs = content.split('\n\n')
+        chunks = {}
+        for i, paragraph in enumerate(paragraphs, start=1):
+            if paragraph.strip():  # Ensure we're not adding empty chunks
+                chunks[f'paragraph_{i}'] = {
+                    'name': f'Paragraph {i}',
+                    'content': paragraph.strip(),
+                    'sentences': paragraph.strip().split('. ')
+                }
+        
+        return chunks if chunks else {'error': 'No valid content found in the file.'}
 
     def parse_audio(self, filepath, language="en"):
         """

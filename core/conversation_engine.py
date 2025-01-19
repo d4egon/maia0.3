@@ -44,6 +44,10 @@ class ConversationEngine:
         # Self-improvement tracking
         self.last_improvement = datetime.now()
         self.improvement_frequency = timedelta(hours=4)  # Example: improve every 4 hours
+        self.user_input_count = 0
+        self.file_upload_count = 0
+        self.fine_tune_threshold = 16  # For user inputs
+        self.file_upload_threshold = 1  # For file uploads
 
     def _save_initial_model(self):
         """Save initial model state."""
@@ -86,6 +90,7 @@ class ConversationEngine:
             }
 
     def process_user_input(self, user_input: str) -> str:
+        self.user_input_count += 1
         """Process user input with potential for self-improvement using deep learning."""
         logger.info(f"[INPUT] {user_input}")
         
@@ -208,7 +213,7 @@ class ConversationEngine:
                 epochs=3,  
                 warmup_steps=500,
                 output_path="model_checkpoint",  
-                show_progress_bar=True
+                show_progress_bar=False
             )
 
             logger.info(f"[MODEL UPDATE] Model updated with {len(new_conversations)} new inputs")
@@ -240,7 +245,7 @@ class ConversationEngine:
                 epochs=3,
                 warmup_steps=500,
                 output_path="model_checkpoint",
-                show_progress_bar=True
+                show_progress_bar=False
             )
 
             for conv in new_conversations:
@@ -259,41 +264,60 @@ class ConversationEngine:
     def self_improve(self):
         """
         Method to trigger self-improvement based on recent interactions, feedback, and deep learning models.
+        This method checks if the number of user inputs or file uploads has reached the set thresholds 
+        and fine-tunes the models accordingly.
         """
         try:
             logger.info("[SELF IMPROVEMENT] Initiating self-improvement cycle.")
             
-            recent_interactions = self.memory_engine.retrieve_recent_memories(self.improvement_frequency)
-            
-            if not recent_interactions:
-                logger.info("[SELF IMPROVEMENT] No recent interactions for improvement.")
-                return
+            # Check if fine-tuning should be triggered by user inputs
+            if self.user_input_count >= self.fine_tune_threshold:
+                logger.info(f"[SELF IMPROVEMENT] Fine-tuning triggered by {self.user_input_count} user inputs.")
+                recent_interactions = self.memory_engine.retrieve_recent_memories(timedelta(days=7))
+                if recent_interactions:
+                    self.update_conversation_model([memory['content'] for memory in recent_interactions])
+                self.user_input_count = 0  # Reset counter
 
-            train_examples = []
-            for i in range(len(recent_interactions) - 1):
-                similarity = np.random.choice([0.8, 0.5])  # Random similarity for example
-                train_examples.append(InputExample(texts=[recent_interactions[i]['content'], recent_interactions[i+1]['content']], label=similarity))
+            # Check if fine-tuning should be triggered by file uploads
+            if self.file_upload_count >= self.file_upload_threshold:
+                logger.info(f"[SELF IMPROVEMENT] Fine-tuning triggered by {self.file_upload_count} file upload.")
+                recent_files = self.memory_engine.retrieve_recent_memories(timedelta(days=7), memory_type="file")
+                if recent_files:
+                    self.update_conversation_model([file['content'] for file in recent_files])
+                self.file_upload_count = 0  # Reset counter
 
-            if train_examples:
-                train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
-                train_loss = losses.CosineSimilarityLoss(self.model)
-
-                self.model.fit(
-                    train_objectives=[(train_dataloader, train_loss)],
-                    epochs=1,  # One epoch for minor adjustments
-                    warmup_steps=100,
-                    output_path="model_checkpoint",  
-                    show_progress_bar=True
-                )
-                
-                self.last_improvement = datetime.now()
-                logger.info(f"[SELF IMPROVEMENT] SentenceTransformer fine-tuned with {len(train_examples)} recent interactions")
-
+            # Optionally, continue with existing self_improvement logic for other periodic improvements
             feedbacks = self.memory_engine.get_recent_feedback(self.improvement_frequency)
             for feedback in feedbacks:
                 self.process_feedback(feedback['content'])
 
-            # Optionally, fine-tune T5 or BERT here with new data if needed
+            # Fine-tune SentenceTransformer model if there are any recent interactions or file uploads
+            all_recent_data = recent_interactions + recent_files
+            if all_recent_data:
+                train_examples = []
+                for i in range(len(all_recent_data) - 1):
+                    similarity = np.random.choice([0.8, 0.5])  # Random similarity for example
+                    train_examples.append(InputExample(texts=[all_recent_data[i]['content'], all_recent_data[i+1]['content']], label=similarity))
+
+                if train_examples:
+                    train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)
+                    train_loss = losses.CosineSimilarityLoss(self.model)
+
+                    self.model.fit(
+                        train_objectives=[(train_dataloader, train_loss)],
+                        epochs=1,  # One epoch for minor adjustments
+                        warmup_steps=100,
+                        output_path="model_checkpoint",  
+                        show_progress_bar=False
+                    )
+                    
+                    self.last_improvement = datetime.now()
+                    logger.info(f"[SELF IMPROVEMENT] SentenceTransformer fine-tuned with {len(train_examples)} recent interactions or file uploads")
+
+        # Optionally, fine-tune T5 or BERT here with new data if needed
+        # For example:
+        # if len(all_recent_data) > 0:
+        #     self.fine_tune_bert([data['content'] for data in all_recent_data])
 
         except Exception as e:
             logger.error(f"[SELF IMPROVEMENT ERROR] {e}", exc_info=True)

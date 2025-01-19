@@ -1,6 +1,7 @@
 import logging
 import mimetypes
 import os
+from typing import Dict, List, Union
 from config.settings import CONFIG
 from core.neo4j_connector import Neo4jConnector
 from core.memory_engine import MemoryEngine
@@ -9,7 +10,6 @@ from core.emotion_engine import EmotionEngine
 from core.ethics_engine import EthicsEngine
 from core.thought_engine import ThoughtEngine
 from core.conversation_engine import ConversationEngine
-#from core.deduplication_engine import DeduplicationEngine
 from core.dream_engine import DreamEngine
 from core.context_search import ContextSearchEngine
 from NLP.response_generator import ResponseGenerator
@@ -30,11 +30,11 @@ class FilePipeline:
                 CONFIG["NEO4J_PASSWORD"]
             )
             self.memory_engine = MemoryEngine(self.neo4j)  # Pass the Neo4j connection to MemoryEngine
-            self.file_parser = FileParser()  # No dependencies required
+            self.file_parser = FileParser(self.neo4j)  # No dependencies required
             self.emotion_engine = EmotionEngine(self.neo4j)  # Pass the Neo4j connection to EmotionEngine
             self.ethics_engine = EthicsEngine(self.neo4j)
             self.thought_engine = ThoughtEngine(self.neo4j)
-            self.context_search_engine = ContextSearchEngine(self.neo4j)  # Pass the Neo4j connection to ContextSearchEngine
+            self.context_search_engine = ContextSearchEngine(self.memory_engine)  # Pass the Neo4j connection to ContextSearchEngine
             self.response_generator = ResponseGenerator(self.memory_engine, self.neo4j)  # Assuming no dependencies required
             self.conversation_engine = ConversationEngine(self.memory_engine, self.response_generator, self.context_search_engine)
             #self.deduplication_engine = DeduplicationEngine()  # No dependencies required
@@ -43,7 +43,8 @@ class FilePipeline:
             logger.error(f"Initialization failed: {e}")
             raise
 
-    def process_file(self, filepath):
+    def process_file(self, filepath: str) -> Dict[str, Union[str, Dict, List]]:
+        logger.info(f"[FILE PIPELINE] Starting to process file: {filepath}")
         """
         Process the uploaded file.
 
@@ -68,10 +69,12 @@ class FilePipeline:
             # Analyze and Store Memory
             emotion, confidence = self.emotion_engine.contextual_emotion_analysis(content)
             self.emotion_engine.update_emotional_state(emotion, confidence)
+            logger.info(f"[EMOTION] Analyzed emotion: {emotion} with confidence {confidence}")
             
             # Ethics Check
             if not self.ethics_engine.check(content):
                 raise ValueError("Content failed ethics check.")
+            logger.info(f"[ETHICS] Content passed ethics check")
 
             # Thought Processing
             thoughts = self.thought_engine.process(content)
@@ -80,10 +83,6 @@ class FilePipeline:
             # Conversation Analysis
             conversation = self.conversation_engine.analyze(content)
             logger.info(f"[CONVERSATION] Analyzed conversation: {conversation}")
-
-            # Deduplication
-            if self.deduplication_engine.is_duplicate(content):
-                raise ValueError("Content is a duplicate.")
 
             # Dream Analysis
             dreams = self.dream_engine.analyze(content)
@@ -101,7 +100,6 @@ class FilePipeline:
                     "dreams": dreams
                 }
             )
-
             logger.info(f"[MEMORY] File '{os.path.basename(filepath)}' stored in memory with emotion '{emotion}' and confidence '{confidence}'.")
             return {
                 "mime_type": mime_type,
@@ -112,11 +110,21 @@ class FilePipeline:
                 "conversation": conversation,
                 "dreams": dreams
             }
+            
         except Exception as e:
             logger.error(f"File processing failed: {e}")
             raise
+        except ValueError as ve:
+            logger.error(f"File processing failed with ValueError: {ve}")
+            return {"error": str(ve)}
+        except Exception as e:
+            logger.error(f"File processing failed with unexpected error: {e}")
+            return {"error": "An unexpected error occurred during file processing"}
+        finally:
+            logger.info(f"[FILE PIPELINE] Finished processing file: {filepath}")
 
-    def handle_file_upload(self, file_path):
+    def handle_file_upload(self, file_path: str) -> Dict[str, str]:
+        self.file_upload_count += 1
         """
         Handle file upload and process the file.
 
@@ -126,9 +134,15 @@ class FilePipeline:
         try:
             if not os.path.exists(file_path):
                 raise ValueError(f"File does not exist: {file_path}")
-
+        
+            if not os.path.exists(file_path):
+                logger.error(f"File does not exist: {file_path}")
+                raise ValueError(f"File does not exist: {file_path}")
+        
             result = self.process_file(file_path)
             return "File processed successfully."
+        
         except Exception as e:
             logger.error(f"File upload handling failed: {e}")
             raise
+        

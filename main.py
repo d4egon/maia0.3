@@ -17,7 +17,7 @@ from config.settings import CONFIG
 from core.context_search import ContextSearchEngine
 from core.neo4j_connector import Neo4jConnector
 from core.memory_engine import MemoryEngine
-from core.file_parser import FileParser
+from core.file_pipeline import FilePipeline
 from NLP.response_generator import ResponseGenerator
 from NLP.nlp_engine import NLP
 from core.emotion_engine import EmotionEngine
@@ -112,7 +112,7 @@ try:
     neo4j = Neo4jConnector(neo4j_uri, neo4j_user, neo4j_password)
     memory_engine = MemoryEngine(neo4j)
     response_gen = ResponseGenerator(memory_engine, neo4j)
-    file_parser = FileParser(memory_engine)
+    pipeline = FilePipeline()
     nlp_engine = NLP(memory_engine, response_gen, neo4j)
     emotion_engine = EmotionEngine(memory_engine)
     emotion_fusion_engine = EmotionFusionEngine(memory_engine, nlp_engine)
@@ -231,37 +231,23 @@ def upload_file():
 
     try:
         file.save(filepath)
-        result = file_parser.parse(filepath)
-        if result is None or not isinstance(result, str) or not result.strip():
-            raise ValueError("File parsing returned invalid result.")
+        pipeline = FilePipeline()
+        result = pipeline.process_file(filepath)
+        
+        if isinstance(result, dict) and 'error' in result:
+            raise ValueError(result['error'])
 
         is_advanced = request.args.get("advanced", "false").lower() == "true"
         if is_advanced:
             logger.info("[ADVANCED PROCESSING] Additional processing steps applied.")
 
-        # Use the new method to upload and process content
-        content_id = memory_engine.upload_and_process_content(
-            file_path=filepath,
-            content_type=file.content_type,
-            title=file.filename,
-            author="Anonymous",  # Assuming author is unknown or default
-            metadata={"source": filename, "type": "advanced_upload" if is_advanced else "upload"}
-        )
+        # Since process_file handles memory_engine, we directly proceed to the next steps
+        # Ethics Check is already done in `process_file`
 
-        # Ethics Check
-        # Note: You might want to retrieve the content of the node to check with ethics_engine
-        content_node = neo4j.run_query("MATCH (c:Content {id: $content_id}) RETURN c.content AS content", {"content_id": content_id})
-        if content_node and not ethics_engine.check(content_node[0]['content']):
-            logger.warning("[ETHICS CHECK] Ethical concern detected in uploaded content.")
-            # Handle ethical concerns here
-
-        # Dream Analysis
-        dream_analysis = dream_engine.analyze(result)
-        if dream_analysis:
-            logger.info(f"[DREAM ANALYSIS] Dream analysis result: {dream_analysis}")
+        # Dream Analysis is already done in `process_file`
 
         # Continuous Learning
-        train_model_on_file_content(result)
+        train_model_on_file_content(result['content'])
 
         os.remove(filepath)
         logger.info(f"[UPLOAD SUCCESS] File '{filename}' processed and stored successfully.")
@@ -279,22 +265,6 @@ def train_model_on_file_content(content):
     sentences = content.split('. ')
     for sentence in sentences:
         update_model_with_text(sentence)
-
-@app.route('/upload-audio', methods=['POST'])
-def upload_audio():
-    try:
-        audio_file = request.files['audio']
-        save_path = os.path.join('uploads', audio_file.filename)
-        audio_file.save(save_path)
-
-        transcription = file_parser.parse_audio(save_path, language="en")
-        # Ethics Check on Transcription
-        if not ethics_engine.check(transcription):
-            logger.warning("[ETHICS CHECK] Ethical concern detected in audio transcription.")
-
-        return jsonify({"content": transcription})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.route('/ask_maia', methods=['POST'])
 def ask_maia():
